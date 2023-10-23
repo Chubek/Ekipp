@@ -182,69 +182,25 @@ Inline void exec_delim_command(void) {
 #define MAX_TOKEN	8
 #define LUT_SIZE	65536
 
-Local	char	sigil_invoke[MAX_TOKEN];
-Local	char	sigil_eval[MAX_TOKEN];
-Local	char	sigil_define[MAX_TOKEN];
-Local	char	sigil_undefine[MAX_TOKEN];
-Local 	char	sigil_exec[MAX_TOKEN];
-Local	char	sigil_str[MAX_TOKEN];
-Local	char	sigil_reg[MAX_TOKEN];
-Local	char	sigil_push[MAX_TOKEN];
-Local 	char	sigil_pop[MAX_TOKEN];
 Local	char	quote_left[MAX_TOKEN];
 Local	char	quote_right[MAX_TOKEN];
 Local	char	comment_left[MAX_TOKEN];
 Local	char	comment_right[MAX_TOKEN];
 Local	char	divert_mark[MAX_TOKEN];
 Local	char	wrap_mark[MAX_TOKEN];
+Local 	char	delim_left[MAX_TOKEN];
+Local	char	delim_right[MAX_TOKEN];
+Local	char	argnum_sigil[MAX_TOKEN];
+Local	char	engage_sigil[MAX_TOKEN];
 
-Local	char**		lex_lut[LUT_SIZE];
-
-Inline uint16_t hash_str(char* s) {
-	uint16_t hash = 0;
-	char	 ch;
-	while ((ch = *s++))
-		hash = (hash * 33) + ch;
-	return hash;
-}
-
-Inline void set_token(char* token, char* src) {
-	uint16_t hash = hash_str(token);
-	if (lex_lut[hash]) {
-		if (!strcmp(&lex_lut[hash][0], src)) {
-			ERR_OUT(ERR_TOKEN_DOUBLE, ECODE_TOKEN_DOUBLE);
-		}
-		free(&lex_lut[hash][0]);
-	} 
-	
-	strcpy(&lex_lut[hash][0], src);
-}
-
-Inline char* get_token(char* token) {
-	uint16_t hash = hash_str(token);
-	return lex_lut[hash];
+Inline void set_token(char* token, char* value) {
+	memset(&token[0], 0, MAX_TOKEN);
+	memmove(&token[0], &value[0], MAX_TOKEN);
 }
 
 Inline bool token_is(char* token, char* inquiry) {
-	return !strcmp(&inquiry[0], get_token(token));
+	return !strcmp(&inquiry[0], token);
 }
-
-Local regex_t*	comp_ident = NULL;
-
-Inline void compile_ident(char* p) {
-	if (comp_ident != NULL)
-		regfree(comp_ident);
-	if (p == NULL)
-		return;
-	if (regcomp(comp_ident, p, REG_NOSUB) < 0) {
-		ERR_OUT(ERR_RE_IDENT, ECODE_RE_IDENT);
-	}
-}
-
-Inline void match_ident(char *in) {
-	return !regexec(comp_ident, in, 0, NULL, 0);
-}
-
 
 External  void 		yyinvoke(wchar_t* code);
 Local	  wchar_t* 	invoke_argv[MAX_ARG];
@@ -262,7 +218,7 @@ Inline void invoke_dumpargs(void) {
 
 Inline void invoke_macro(wchar_t *id) {
 	wchar_t* macro = get_symbol(id);
-	yyinvoke(maro);
+	yyinvoke(macro);
 }
 
 Local wchar_t*	aux_prim;
