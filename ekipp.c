@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <limits.h>
 #include <string.h>
 #include <wchar.h>
@@ -59,7 +60,10 @@ Local 	wchar_t*	divert_strings[NUM_DIVERT];
 Local 	size_t		divert_lengths[NUM_DIVERT];
 Local	FILE*		current_divert;
 Local	FILE*		null_divert;
+Local	int		current_divert_idx;
+Local	FILE*		output;
 
+#define OUTPUT(ws) 	(fputws(ws, output))
 #define OUTPUT_DIVERT(ws) (fputws(ws, current_divert))
 
 Inline void set_divert(int n) {
@@ -69,23 +73,29 @@ Inline void set_divert(int n) {
 	else if (n < 0) {
 		if (!null_divert) 
 			null_divert = fopen(NULL_DEVICE, "w");
-		current_divert = null_divert;
-	} else if (n >= 0) {
-w		if (!divert_streams[n])
+		current_divert 	   = null_divert;
+		current_divert_idx = -1;
+	} else {
+		if (!divert_streams[n])
 			divert_streams[n] = 
 				open_wmemstream(&divert_strings[n],
 						&divert_lengths[n]);
-		current_divert = divert_streams[n];
-	} else {
-		return;
+		current_divert 	   = divert_streams[n];
+		current_divert_idx = n;
 	}
 }
 
-Local	FILE*		input;
-Local	FILE*		output;
-
-#define OUTPUT(ws) 	(fputws(ws, output))
-
+Inline void unset_divert(int n) {
+	if (n < 0) {
+		ERR_OUT(ERR_UNSET_NULLDIV, ECODE_UNSET_NULLDIV);
+	} else if (n >= NUM_DIVERT) {
+		ERR_OUT(ERR_NUM_DIVERT, ECODE_NUM_DIVERT);
+	} else {
+		fwrite(divert_strings[n], divert_lengths[n], 1, output);
+		free(divert_strings[n]);
+		fclose(divert_streams[n]);
+	}
+}
 
 Local 	regex_t		reg_cc;
 Local	char*		reg_input;
@@ -171,14 +181,16 @@ Inline void exec_delim_command(void) {
 }
 #define MAX_TOKEN	8
 #define LUT_SIZE	65536
-#define NUM_TOKEN	12
 
 Local	char	sigil_invoke[MAX_TOKEN];
 Local	char	sigil_eval[MAX_TOKEN];
 Local	char	sigil_define[MAX_TOKEN];
+Local	char	sigil_undefine[MAX_TOKEN];
 Local 	char	sigil_exec[MAX_TOKEN];
 Local	char	sigil_str[MAX_TOKEN];
 Local	char	sigil_reg[MAX_TOKEN];
+Local	char	sigil_push[MAX_TOKEN];
+Local 	char	sigil_pop[MAX_TOKEN];
 Local	char	quote_left[MAX_TOKEN];
 Local	char	quote_right[MAX_TOKEN];
 Local	char	comment_left[MAX_TOKEN];
@@ -186,8 +198,7 @@ Local	char	comment_right[MAX_TOKEN];
 Local	char	divert_mark[MAX_TOKEN];
 Local	char	wrap_mark[MAX_TOKEN];
 
-Local	int		lex_lut[LUT_SIZE];
-Local	uint8_t 	merge_lut[NUM_TOKEN];
+Local	char**		lex_lut[LUT_SIZE];
 
 Inline uint16_t hash_str(char* s) {
 	uint16_t hash = 0;
@@ -197,23 +208,25 @@ Inline uint16_t hash_str(char* s) {
 	return hash;
 }
 
-Inline uint8_t merge_str(char* s) {
-	uint8_t merge = 0;
-	for (int i = 0; i < UINT8_WIDTH; i++)
-		merge |= s[i] << UINT8_WIDTH - i;
-	return merge;
-}
-
-Inline void set_token(int id, char* src) {
-	uint16_t hash = hash_str(src);
+Inline void set_token(char* token, char* src) {
+	uint16_t hash = hash_str(token);
 	if (lex_lut[hash]) {
-		if (id == lex_lut[hash]) {
+		if (!strcmp(&lex_lut[hash][0], src)) {
 			ERR_OUT(ERR_TOKEN_DOUBLE, ECODE_TOKEN_DOUBLE);
 		}
-	} else
-		lex_lut[hash] = &dst;
+		free(&lex_lut[hash][0]);
+	} 
+	
+	strcpy(&lex_lut[hash][0], src);
+}
 
-	merge_lut[id] = merge_str(src);
+Inline char* get_token(char* token) {
+	uint16_t hash = hash_str(token);
+	return lex_lut[hash];
+}
+
+Inline bool token_is(char* token, char* inquiry) {
+	return !strcmp(&inquiry[0], get_token(token));
 }
 
 Local regex_t*	comp_ident = NULL;
