@@ -71,7 +71,7 @@ Inline void set_divert(int n) {
 			null_divert = fopen(NULL_DEVICE, "w");
 		current_divert = null_divert;
 	} else if (n >= 0) {
-		if (!divert_streams[n])
+w		if (!divert_streams[n])
 			divert_streams[n] = 
 				open_wmemstream(&divert_strings[n],
 						&divert_lengths[n]);
@@ -104,40 +104,6 @@ Inline void ifelse_regmatch(void) {
 
 	regfree(&reg_cc);
 }
-
-typedef long double fltmax_t;
-
-Local uint8_t*		eval_expr;
-Local union EvalRes {
-	fltmax_t 	fltnum;
-	intmax_t	intnum;
-	void*		allnum;
-} Evalres;
-typedef union EvalRes evres_t;
-
-#define FLOAT_RES(f)	(Evalres.fltnum = f)
-#define INT_RES(i)	(Evalres.intnum = i)
-
-
-Local 		evres_t			eval_cmp;
-Local 		wchar_t*		eval_ifeq;
-Local 		wchar_t* 		eval_ifne;
-External	int			yyevalexpr(void);
-
-Inline void ifelse_evalmatch(void) {
-	if (yyevalexpr()) {
-		ERR_OUT(ERR_EVAL_MATCH, ECODE_EVAL_MATCH);
-	}
-	
-	(eval_cmp.allnum == Evalres.allnum)
-		? OUTPUT(eval_ifeq)
-		: OUTPUT(eval_ifne);
-}
-
-Local char*		exec_shell;
-Local wchar_t*		exec_strcmp;
-Local wchar_t*		exec_streq;
-Local wchar_t*		exec_strne;
 
 #define FLUSH_STDIO() (fflush(stdin), fflush(stdout), fflush(stderr))
 
@@ -203,58 +169,68 @@ Inline void exec_delim_command(void) {
 	OUTPUT(readtxt);
 	free(readtxt);
 }
+#define MAX_TOKEN	8
+#define LUT_SIZE	65536
+#define NUM_TOKEN	12
 
-Local 		wchar_t**		invoke_argv;
-Local 		uint8_t			invoke_argc;
-Local 		wchar_t*		invoke_ident;
-External	int			yyevalmacro(void);
+Local	char	sigil_invoke[MAX_TOKEN];
+Local	char	sigil_eval[MAX_TOKEN];
+Local	char	sigil_define[MAX_TOKEN];
+Local 	char	sigil_exec[MAX_TOKEN];
+Local	char	sigil_str[MAX_TOKEN];
+Local	char	sigil_reg[MAX_TOKEN];
+Local	char	quote_left[MAX_TOKEN];
+Local	char	quote_right[MAX_TOKEN];
+Local	char	comment_left[MAX_TOKEN];
+Local	char	comment_right[MAX_TOKEN];
+Local	char	divert_mark[MAX_TOKEN];
+Local	char	wrap_mark[MAX_TOKEN];
 
-Inline void invoke_macro(void) {
-	if (yyevalmacro()) {
-		ERR_OUT(ERR_EVAL_MACRO, ECODE_EVAL_MACRO);
+Local	int		lex_lut[LUT_SIZE];
+Local	uint8_t 	merge_lut[NUM_TOKEN];
+
+Inline uint16_t hash_str(char* s) {
+	uint16_t hash = 0;
+	char	 ch;
+	while ((ch = *s++))
+		hash = (hash * 33) + ch;
+	return hash;
+}
+
+Inline uint8_t merge_str(char* s) {
+	uint8_t merge = 0;
+	for (int i = 0; i < UINT8_WIDTH; i++)
+		merge |= s[i] << UINT8_WIDTH - i;
+	return merge;
+}
+
+Inline void set_token(int id, char* src) {
+	uint16_t hash = hash_str(src);
+	if (lex_lut[hash]) {
+		if (id == lex_lut[hash]) {
+			ERR_OUT(ERR_TOKEN_DOUBLE, ECODE_TOKEN_DOUBLE);
+		}
+	} else
+		lex_lut[hash] = &dst;
+
+	merge_lut[id] = merge_str(src);
+}
+
+Local regex_t*	comp_ident = NULL;
+
+Inline void compile_ident(char* p) {
+	if (comp_ident != NULL)
+		regfree(comp_ident);
+	if (p == NULL)
+		return;
+	if (regcomp(comp_ident, p, REG_NOSUB) < 0) {
+		ERR_OUT(ERR_RE_IDENT, ECODE_RE_IDENT);
 	}
 }
 
-#define MAX_TOKEN	8 + 1
-
-Local char	token_invokeleft[MAX_TOKEN];
-Local char	token_invokeright[MAX_TOKEN];
-Local char	token_quoteleft[MAX_TOKEN];
-Local char	token_quoteright[MAX_TOKEN];
-Local char	token_comleft[MAX_TOKEN];
-Local char	token_comright[MAX_TOKEN];
-Local char	token_strleft[MAX_TOKEN];
-Local char 	token_strright[MAX_TOKEN];
-Local char	token_regleft[MAX_TOKEN];
-Local char	token_regright[MAX_TOKEN];
-Local char	token_delimleft[MAX_TOKEN];
-LOcal char	token_delimright[MAX_TOKEN];
-Local char	token_exprleft[MAX_TOKEN];
-Local char	token_exprright[MAX_TOKEN];
-Local char	token_execleft[MAX_TOKEN];
-Local char	token_execright[MAX_TOKEN];
-
-Local uint64_t	tokens_hash;
-
-Inline void token_set(char* dst, char* src) {
-	int n = MAX_TOKEN;
-	uint64_t old_hash = tokens_hash;
-	while (--n) tokens_hash = (tokens_hash * 33) + src[n];
-	if (tokens_hash == old_hash) {
-		ERR_OUT(ERR_SAME_TOKEN, ECODE_SAME_TOKEN);
-	}
-	
-	if (strncpy(&dst[0],  &src[0], MAX_TOKEN) < 0) {
-		ERR_OUT(ERR_TOKEN_COPY, ECODE_TOKEN_COPY);
-	}
+Inline void match_ident(char *in) {
+	return !regexec(comp_ident, in, 0, NULL, 0);
 }
-
-Inline bool token_is(char* a, char* b) {
-	return !strncmp(a, b);
-}
-
-
-
 
 
 
