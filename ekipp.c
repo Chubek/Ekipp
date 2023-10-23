@@ -23,8 +23,8 @@ typedef struct LinkedList node_t;
 Inline void insert_symbol(wchar_t* name, wchar_t* value) {
 	node_t* 	node	= calloc(1, sizeof(node_t));
 	node->next	= Symtable;
-	node->name	= strdup(name);
-	node->value     = strdup(value);
+	node->name	= wcsdup(name);
+	node->value     = wcsdup(value);
 	Symtable	= node;
 }
 
