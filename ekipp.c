@@ -4,10 +4,11 @@
 #include <limits.h>
 #include <string.h>
 #include <wchar.h>
+#include <regex.h>
 
 #define Local 			static
 #define Inline			static inline
-#define SYMTABLE_LEN_STEP	64
+#define External		extern
 
 #define ERR_OUT(e, c) do { fputs(e, stderr); exit(c);  } while (0)
 
@@ -19,12 +20,11 @@ Local struct LinkedList {
 typedef struct LinkedList node_t;
 
 Inline void insert_symbol(wchar_t* name, wchar_t* value) {
-	node_t* 	node	= calloc(sizeof(node_t));
+	node_t* 	node	= calloc(1, sizeof(node_t));
 	node->next	= Symtable;
 	node->name	= name;
 	node->value     = value;
 	Symtable	= node;
-	Symtable_Cnt++;
 }
 
 Inline wchar_t* get_symbol(wchar_t* name) {
@@ -38,11 +38,16 @@ Inline wchar_t* get_symbol(wchar_t* name) {
 	return NULL;
 }
 
+Inline void free_node(node_t* node) {
+	free(node->name);
+	free(node->value);
+}
+
 Inline void dump_symtable(void) {
 	node_t*		node;
 
 	for (node = Symtable; node != NULL; node = node->next)
-		free(node);
+		free_node(node);
 }
 
 
@@ -59,7 +64,7 @@ Local	FILE*		null_divert;
 
 Inline void set_divert(int n) {
 	if (n > NUM_DIVERT) {
-		ERR_OUT(ERR_NUM_DIVERT, CODE_NUM_DIVERT);
+		ERR_OUT(ERR_NUM_DIVERT, ECODE_NUM_DIVERT);
 	}
 	else if (n < 0) {
 		if (!null_divert) 
@@ -79,18 +84,18 @@ Inline void set_divert(int n) {
 Local	FILE*		input;
 Local	FILE*		output;
 
-#define OUTPUT(ws) 	(fputws(ws, output));
+#define OUTPUT(ws) 	(fputws(ws, output))
 
 
 Local 	regex_t		reg_cc;
-Local	uint8_t*	reg_input;
-Local	uint8_t*	reg_pattern;
-Local	uint8_t*	reg_matchmsg;
-Local	uint8_t*	reg_nomatchmsg;
+Local	char*		reg_input;
+Local	char*		reg_pattern;
+Local	wchar_t*	reg_matchmsg;
+Local	wchar_t*	reg_nomatchmsg;
 
 Inline void ifelse_regmatch(void) {
 	if (regcomp(&reg_cc, reg_pattern, REG_NOSUB) < 0) {
-		ERR_OUT(ERR_REG_COMP, CODE_REG_COMP);
+		ERR_OUT(ERR_REG_COMP, ECODE_REG_COMP);
 	}
 
 	regexec(&reg_cc, reg_input, 0, NULL, 0)
@@ -106,6 +111,7 @@ Local uint8_t*		eval_expr;
 Local union EvalRes {
 	fltmax_t 	fltnum;
 	intmax_t	intnum;
+	void*		allnum;
 } Evalres;
 typedef union EvalRes evres_t;
 
@@ -113,24 +119,25 @@ typedef union EvalRes evres_t;
 #define INT_RES(i)	(Evalres.intnum = i)
 
 
-Local evres_t		eval_cmp;
-Local uint8_t*		eval_ifeq;
-Local uint8_t* 		eval_ifne;
+Local 		evres_t			eval_cmp;
+Local 		wchar_t*		eval_ifeq;
+Local 		wchar_t* 		eval_ifne;
+External	int			yyevalexpr(void);
 
 Inline void ifelse_evalmatch(void) {
 	if (yyevalexpr()) {
-		ERR_OUT(ERR_EVAL_MATCH, CODE_EVAL_MATCH);
+		ERR_OUT(ERR_EVAL_MATCH, ECODE_EVAL_MATCH);
 	}
 	
-	(eval_cmp == Evalres)
+	(eval_cmp.allnum == Evalres.allnum)
 		? OUTPUT(eval_ifeq)
 		: OUTPUT(eval_ifne);
 }
 
-Local uint8_t*		exec_shell;
-Local uint8_t*		exec_strcmp;
-Local uint8_t*		exec_streq;
-Local uint8_t*		exec_strne;
+Local char*		exec_shell;
+Local wchar_t*		exec_strcmp;
+Local wchar_t*		exec_streq;
+Local wchar_t*		exec_strne;
 
 #define FLUSH_STDIO() (fflush(stdin), fflush(stdout), fflush(stderr))
 
@@ -138,7 +145,7 @@ Inline void ifelse_execmatch(void) {
 	FILE* pipe;
 	FLUSH_STDIO();
 	if (!(pipe = popen(exec_shell, "r"))) {
-		ERR_OUT(ERR_EXEC_SHELL, CODE_EXEC_SHELL);
+		ERR_OUT(ERR_EXEC_SHELL, ECODE_EXEC_SHELL);
 	}
 
 	fseek(pipe, 0, SEEK_END);
@@ -148,20 +155,17 @@ Inline void ifelse_execmatch(void) {
 		return;
 	}
 
-	uint8_t* readtxt = calloc(len, sizeof(uint8_t));
-
-	fread(&readtxt[0], len, sizeof(uint8_t), pipe);
-
+	wchar_t* readtxt = calloc(len, sizeof(wchar_t));
+	fread(&readtxt[0], len, sizeof(wchar_t), pipe);
 	(!wcsncmp(&readtxt[0], exec_strcmp, len))
 		? OUTPUT(exec_streq)
 		: OUTPUT(exec_strne);
-
 	free(readtxt);
 }
 
 Local FILE*		delim_stream;
 Local char		delim_fpath[MAX_PATH];
-Local uint8_t*		delim_command;	
+Local char*		delim_command;	
 
 #define OUTPUT_DELIM(ws) (fputws(ws, delim_stream))
 
@@ -170,11 +174,11 @@ Inline void init_delim_stream(void) {
 	delim_fpath[0] = 'X'; delim_fpath[1] = 'X'; delim_fpath[2] = 'X';
 	delim_fpath[3] = 'X'; delim_fpath[4] = 'X'; delim_fpath[5] = 'E';
 	if (mkstemp(&delim_fpath) < 0) {
-		ERR_OUT(ERR_DELIM_FPATH, CODE_DELIM_FPATH);
+		ERR_OUT(ERR_DELIM_FPATH, ECODE_DELIM_FPATH);
 	}
 
 	if (!(delim_stream = fopen(&delim_fpath[0], "w"))) {
-		ERR_OUT(ERR_DELIM_OPEN, CODE_DELIM_OPEN);
+		ERR_OUT(ERR_DELIM_OPEN, ECODE_DELIM_OPEN);
 	}
 }
 
@@ -182,7 +186,7 @@ Inline void exec_delim_command(void) {
 	FLUSH_STDIO();
 	fclose(delim_stream);
 	if (!(delim_stream = freopen(&delim_fpath[0], "r", stdin))) {
-		ERR_OUT(ERR_DELIM_REOPEN, CODE_DELIM_REOPEN);
+		ERR_OUT(ERR_DELIM_REOPEN, ECODE_DELIM_REOPEN);
 	}
 
 	FILE* pipe = popen(delim_command, "r");
@@ -194,12 +198,66 @@ Inline void exec_delim_command(void) {
 		return;	
 	}
 
-	uint8_t* readtxt = calloc(len, sizeof(uint8_t));
-	fread(&readtxt[0], len, sizeof(uint8_t), pipe);
+	wchar_t* readtxt = calloc(len, sizeof(wchar_t));
+	fread(&readtxt[0], len, sizeof(wchar_t), pipe);
 	OUTPUT(readtxt);
 	free(readtxt);
-
 }
+
+Local 		wchar_t**		invoke_argv;
+Local 		uint8_t			invoke_argc;
+Local 		wchar_t*		invoke_ident;
+External	int			yyevalmacro(void);
+
+Inline void invoke_macro(void) {
+	if (yyevalmacro()) {
+		ERR_OUT(ERR_EVAL_MACRO, ECODE_EVAL_MACRO);
+	}
+}
+
+#define MAX_TOKEN	8 + 1
+
+Local char	token_invokeleft[MAX_TOKEN];
+Local char	token_invokeright[MAX_TOKEN];
+Local char	token_quoteleft[MAX_TOKEN];
+Local char	token_quoteright[MAX_TOKEN];
+Local char	token_comleft[MAX_TOKEN];
+Local char	token_comright[MAX_TOKEN];
+Local char	token_strleft[MAX_TOKEN];
+Local char 	token_strright[MAX_TOKEN];
+Local char	token_regleft[MAX_TOKEN];
+Local char	token_regright[MAX_TOKEN];
+Local char	token_delimleft[MAX_TOKEN];
+LOcal char	token_delimright[MAX_TOKEN];
+Local char	token_exprleft[MAX_TOKEN];
+Local char	token_exprright[MAX_TOKEN];
+Local char	token_execleft[MAX_TOKEN];
+Local char	token_execright[MAX_TOKEN];
+
+Local uint64_t	tokens_hash;
+
+Inline void token_set(char* dst, char* src) {
+	int n = MAX_TOKEN;
+	uint64_t old_hash = tokens_hash;
+	while (--n) tokens_hash = (tokens_hash * 33) + src[n];
+	if (tokens_hash == old_hash) {
+		ERR_OUT(ERR_SAME_TOKEN, ECODE_SAME_TOKEN);
+	}
+	
+	if (strncpy(&dst[0],  &src[0], MAX_TOKEN) < 0) {
+		ERR_OUT(ERR_TOKEN_COPY, ECODE_TOKEN_COPY);
+	}
+}
+
+Inline bool token_is(char* a, char* b) {
+	return !strncmp(a, b);
+}
+
+
+
+
+
+
 
 
 
