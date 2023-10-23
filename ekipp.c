@@ -6,6 +6,7 @@
 #include <string.h>
 #include <wchar.h>
 #include <regex.h>
+#include <dirent.h>
 
 #define Local 			static
 #define Inline			static inline
@@ -274,6 +275,24 @@ Inline void offset(void) {
 	#undef SUB
 }
 
+Inline void list_dir(void) {
+	#define DIR_PATH 	aux_prim
+
+	DIR* stream = opendir(DIR_PATH);
+	if (!stream) {
+		ERR_OUT(ERR_NO_DIR, ECODE_NO_DIR);
+	}
+
+	struct dirent* entry;
+	int i = 0;
+
+	while ((entry = readdir(stream)) != NULL) {
+		fprintf(output, "%d --- %s\n", ++i, &entry->d_name[0]);
+		free(entry);
+	}
+
+	closedir(stream);
+}
 
 Local void do_at_exit(void) {
 	dump_symtable();
