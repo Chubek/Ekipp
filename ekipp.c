@@ -97,6 +97,17 @@ Inline void unset_divert(int n) {
 	}
 }
 
+Inline void free_set_diverts(void) {
+	int i = NUM_DIVERT;
+	while (--i) {
+		if (divert_streams[i]) {
+			OUTPUT(divert_strings[i]);
+			free(divert_strings[i]);
+			fclose(divert_streams[i]);
+		}
+	}
+}
+
 Local 	regex_t		reg_cc;
 Local	char*		reg_input;
 Local	char*		reg_pattern;
@@ -264,7 +275,11 @@ Inline void offset(void) {
 }
 
 
-
+Local void do_at_exit(void) {
+	dump_symtable();
+	free_set_diverts();
+	invoke_dumpargs();
+}
 
 
 
