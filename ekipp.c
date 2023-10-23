@@ -257,7 +257,7 @@ Inline void invoke_addarg(wchar_t* arg) {
 Inline void invoke_dumpargs(void) {
 	while (--invoke_argc)
 		free(invoke_argv[invoke_argc]);
-	memset(&invoke_argv[0], 0, MAX_ARG * sizeof(wchar_t));
+	memset(&invoke_argv[0], 0, MAX_ARG * sizeof(wchar_t*));
 }
 
 Inline void invoke_macro(wchar_t *id) {
@@ -265,7 +265,47 @@ Inline void invoke_macro(wchar_t *id) {
 	yyinvoke(maro);
 }
 
+Local wchar_t*	aux_prim;
+Local wchar_t*	aux_sec;
+Local wchar_t*	aux_tert;
+Local wchar_t*	aux_quat;
+Local wchar_t*	aux_result;
 
+
+Inline void translit(int action) {
+	#define INPUT 		aux_prim
+	#define SRCMAP		aux_sec
+	#define DSTMAP		aux_tert
+	wchar_t 	wc;
+	wchar_t* 	wcp;
+	size_t		offs;
+	size_t		lendst = wcslen(DSTMAP);
+
+	while ((wc = *INPUT++)) {
+		if ((wcp = wcschr(SRCMAP, wc), offs = wcp - SRCMAP)) {
+			if (offs < lendst)
+				fputwc(DSTMAP[offs], output);
+			else
+				break;
+		} else
+			fputwc(wc, output);
+	}
+	OUTPUT(&INPUT[++offs]);
+
+	#undef INPUT
+	#undef SRCMAP
+	#undef DSTMAP
+}
+
+Inline void offset(void) {
+	#define INPUT		aux_prim
+	#define SUB		aux_sec
+
+	fwprintf(output, "%lp", wcsstr(INPUT, SUB) - INPUT);
+
+	#undef INPUT
+	#undef SUB
+}
 
 
 
