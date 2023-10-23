@@ -246,6 +246,36 @@ Inline void match_ident(char *in) {
 }
 
 
+External  void 		yyinvoke(wchar_t* code);
+Local	  wchar_t* 	invoke_argv[MAX_ARG];
+Local	  size_t	invoke_argc = 0;
+
+Inline void invoke_addarg(wchar_t* arg) {
+	invoke_argv[invoke_argc++] = wcsdup(arg);
+}
+
+Inline void invoke_dumpargs(void) {
+	while (--invoke_argc)
+		free(invoke_argv[invoke_argc]);
+	memset(&invoke_argv[0], 0, MAX_ARG * sizeof(wchar_t));
+}
+
+Inline void invoke_macro(wchar_t *id) {
+	wchar_t* macro = get_symbol(id);
+	yyinvoke(maro);
+}
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
