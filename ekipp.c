@@ -204,6 +204,7 @@ Local 	char	delim_left[MAX_TOKEN];
 Local	char	delim_right[MAX_TOKEN];
 Local	char	argnum_sigil[MAX_TOKEN];
 Local	char	engage_sigil[MAX_TOKEN];
+Local	char	sep_token[MAX_TOKEN];
 
 Inline void set_token(char* token, char* value) {
 	memset(&token[0], 0, MAX_TOKEN);
@@ -287,11 +288,45 @@ Inline void list_dir(void) {
 	int i = 0;
 
 	while ((entry = readdir(stream)) != NULL) {
-		fprintf(output, "%d --- %s\n", ++i, &entry->d_name[0]);
+		fprintf(output, 
+				"%d %s %s\n", 
+				++i, 
+				&sep_token,
+				&entry->d_name[0]
+			);
 		free(entry);
 	}
 
 	closedir(stream);
+
+	#undef DIR_PATH
+}
+
+Inline void cat_file(void) {
+	#define FILE_PATH	aux_prim
+
+	FILE*	stream	= fopen(FILE_PATH, "r");
+	if (fseek(stream, 0, SEEK_END) < 0) {
+		ERR_OUT(ERR_CAT_FAIL, ECODE_CAT_FAIL);
+	}
+
+	long len = ftell(stream);
+	if (len < 0) {
+		fclose(stream);
+		return;
+	}
+
+	wchar_t* text = calloc(len, sizeof(wchar_t));
+	if (fread(&text[0], len, sizeof(wchar_t), stream) < 0) {
+		ERR_OUT(ERR_CAT_FAIL, ECODE_CAT_FAIL);
+	}
+
+	OUTPUT(text);
+
+	fclose(stream);
+	free(text);
+
+	#undef FILE_PATH
 }
 
 Local void do_at_exit(void) {
