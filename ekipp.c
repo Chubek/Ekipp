@@ -9,9 +9,11 @@
 #include <dirent.h>
 #include <time.h>
 
-#define Local 			static
-#define Inline			static inline
-#define External		extern
+#define Local                   static
+#define Inline                  static inline
+#define External                extern
+
+#include "ekipp.h"
 
 #define ERR_OUT(e, c) do { fputs(e, stderr); exit(c);  } while (0)
 
@@ -20,7 +22,6 @@ Local struct LinkedList {
 	wchar_t*			name;
 	wchar_t*			value;
 } *Symtable;
-typedef struct LinkedList node_t;
 
 Inline void insert_symbol(wchar_t* name, wchar_t* value) {
 	node_t* 	node	= calloc(1, sizeof(node_t));
@@ -422,7 +423,7 @@ Local wchar_t*	aux_prim;
 Local wchar_t*	aux_sec;
 Local wchar_t*	aux_tert;
 
-Inline void set_aux(wchar_t** aux, wchar* value) {
+Inline void set_aux(wchar_t** aux, wchar_t* value) {
 	*aux = wcsdup(value);
 }
 
