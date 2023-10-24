@@ -44,6 +44,18 @@ Inline wchar_t* get_symbol(wchar_t* name) {
 Inline void free_node(node_t* node) {
 	free(node->name);
 	free(node->value);
+	free(node);
+}
+
+Inline void remove_symbol(wchar_t* name) {
+	node_t* 	node;
+	size_t 		len  = wcslen(name);
+
+	for (node = Symtable; node != NULL; node = node->next) {
+		if (!wcsncmp(node->name, name, len))
+			free_node(node);
+	}
+
 }
 
 Inline void dump_symtable(void) {
@@ -51,6 +63,43 @@ Inline void dump_symtable(void) {
 
 	for (node = Symtable; node != NULL; node = node->next)
 		free_node(node);
+}
+
+#define MAX_STACK 	4096
+
+Local struct DefStack {
+	wchar_t*	name;
+	wchar_t*	value;
+} Defstack[MAX_STACK];
+Local size_t	stack_pointer = 0;
+
+Inline void push_stack(wchar_t* name, wchar_t* value) {
+	Defstack[stack_pointer].name   = wcsdup(name);
+	Defstack[stack_pointer].value  = wcsdup(value);
+	stack_pointer++;
+}
+
+Inline wchar_t*	get_stack_value(wchar_t* name) {
+	size_t len = wcslen(name);
+	size_t ptr = stack_pointer;
+
+	while (--ptr) {
+		if (!wcsncmp(Defstack[ptr].value, name, len))
+			return Defstack[ptr].value;
+	}
+
+	return NULL;
+}
+
+Inline wchar_t* get_stack_pop(void) {
+	return Defstack[--stack_pointer].value;
+}
+
+Inline void dump_stack(void) {
+	while (--stack_pointer) {
+		free(Defstack[stack_pointer].name);
+		free(Defstack[stack_pointer].value);
+	}
 }
 
 
@@ -307,12 +356,27 @@ Inline bool token_is(char* token, char* inquiry) {
 
 External  void 		yyinvoke(wchar_t* code);
 External  void		yyforeach(wchar_t* code, wchar_t* arg);
+
 Local	  wchar_t* 	invoke_argv[MAX_ARG];
 Local	  size_t	invoke_argc = 0;
 Local	  wchar_t*	keyword;
 
 Inline void invoke_addarg(wchar_t* arg) {
 	invoke_argv[invoke_argc++] = wcsdup(arg);
+}
+
+Inline void invoke_getarg(size_t n) {
+	return invoke_argv[n];
+}
+
+Inline void invoke_printargs(wchar_t* delim) {
+	size_t n = 0;
+	while (n < invoke_argc - 1) {
+		OUTPUT(invoke_argv[n++]);
+		OUTPUT(delim);
+	}
+
+	OUTPUT(invoke_argv[n]);
 }
 
 Inline void invoke_dumpargs(void) {
@@ -323,6 +387,11 @@ Inline void invoke_dumpargs(void) {
 
 Inline void invoke_macro(wchar_t *id) {
 	wchar_t* macro = get_symbol(id);
+	if (!macro)
+		macro = get_stack_value(id);
+	if (!macro) {
+		ERR_OUT(ERR_UNKNOWN_MACRO, ECODE_UNKNOWN_MACRO);
+	}
 	yyinvoke(macro);
 }
 
@@ -331,7 +400,22 @@ Inline void foreach_macro(wchar_t* macro, char* kwd) {
 	while (--invoke_argc) {
 		yyforeach(macro, invoke_argv[invoke_argc]);
 	}
-	
+	free(keyword);
+}
+
+Inline void print_formatted(wchar_t* fmt) {
+	wchar_t wc;
+	wchar_t f[3] = {0};
+	int i = 0;
+
+	while ((wc = *fmt++) && i < invoke_argc) {
+		if (wc == L'%' && *fmt != L'%') {
+			f[0] = L'%';
+			f[1] = *fmt++;
+			fwptintf(output, &f[0], invoke_argv[i++]);
+		}
+	}
+
 }
 
 Local wchar_t*	aux_prim;
@@ -470,6 +554,7 @@ Inline void format_time(void) {
 
 Local void do_at_exit(void) {
 	dump_symtable();
+	dump_stack();
 	free_set_diverts();
 	invoke_dumpargs();
 }
