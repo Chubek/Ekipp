@@ -216,7 +216,7 @@ Inline void search_file(FILE* stream) {
 					0)) {
 				start = reg_pmatch[0].rm_so;
 				len   = reg_pmatch[0].rm_eo - start;
-				wcsncpy(&word[0], &line[start], len);
+				wcsncpy(&word[0], &line_str[start], len);
 				OUTPUT(word);
 				free(word);
 			}
@@ -262,12 +262,42 @@ Inline void ifelse_execmatch(void) {
 		return;
 	}
 
+	rewind(pipe);
+
 	wchar_t* readtxt = calloc(len, sizeof(wchar_t));
 	fread(&readtxt[0], len, sizeof(wchar_t), pipe);
 	(!wcsncmp(&readtxt[0], exec_strcmp, len))
 		? OUTPUT(exec_streq)
 		: OUTPUT(exec_strne);
 	free(readtxt);
+}
+
+Inline void exec_command(void) {
+	FILE* stream = popen(exec_cmd, "r");
+	if (!stream) {
+		ERR_OUT(ERR_EXEC_CMD, ECODE_EXEC_CMD);	
+	}
+
+	if (fseek(stream, 0, SEEK_END) < 0) {
+		ERR_OUT(ERR_EXEC_READ, ECODE_EXEC_READ);
+	}
+
+	long len;
+	if ((len = ftell(stream))) {
+		ERR_OUT(ERR_EXEC_READ, ECODE_EXEC_READ);
+	}
+
+	rewind(stream);
+
+	wchar_t* text = calloc(len, sizeof(wchar_t));
+	if (fread(text, len, sizeof(wchar_t), stream) < 0) {
+		ERR_OUT(ERR_EXEC_READ, ECODE_EXEC_READ);
+	}
+
+	OUTPUT(text);
+
+	free(text);
+	pclose(stream);
 }
 
 Local FILE*		delim_stream;
@@ -304,6 +334,8 @@ Inline void exec_delim_command(void) {
 	if (len < 0) {
 		return;	
 	}
+
+	rewind(pipe);
 
 	wchar_t* readtxt = calloc(len, sizeof(wchar_t));
 	fread(&readtxt[0], len, sizeof(wchar_t), pipe);
@@ -509,6 +541,8 @@ Inline void cat_file(void) {
 		fclose(stream);
 		return;
 	}
+
+	rewind(stream);
 
 	wchar_t* text = calloc(len, sizeof(wchar_t));
 	if (fread(&text[0], len, sizeof(wchar_t), stream) < 0) {
