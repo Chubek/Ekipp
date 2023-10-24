@@ -7,6 +7,7 @@
 #include <wchar.h>
 #include <regex.h>
 #include <dirent.h>
+#include <time.h>
 
 #define Local 			static
 #define Inline			static inline
@@ -129,10 +130,16 @@ Inline void ifelse_regmatch(void) {
 
 #define FLUSH_STDIO() (fflush(stdin), fflush(stdout), fflush(stderr))
 
+Local	char*		exec_cmd;
+Local	wchar_t*	exec_strcmp;
+Local	wchar_t*   	exec_strne;
+Local	wchar_t*	exec_streq;
+
+
 Inline void ifelse_execmatch(void) {
 	FILE* pipe;
 	FLUSH_STDIO();
-	if (!(pipe = popen(exec_shell, "r"))) {
+	if (!(pipe = popen(exec_cmd, "r"))) {
 		ERR_OUT(ERR_EXEC_SHELL, ECODE_EXEC_SHELL);
 	}
 
@@ -152,13 +159,13 @@ Inline void ifelse_execmatch(void) {
 }
 
 Local FILE*		delim_stream;
-Local char		delim_fpath[MAX_PATH];
+Local char		delim_fpath[MAX_FILEPATH];
 Local char*		delim_command;	
 
 #define OUTPUT_DELIM(ws) (fputws(ws, delim_stream))
 
 Inline void init_delim_stream(void) {
-	memset(&delim_fpath[0], 0, MAX_PATH);
+	memset(&delim_fpath[0], 0, MAX_FILEPATH);
 	delim_fpath[0] = 'X'; delim_fpath[1] = 'X'; delim_fpath[2] = 'X';
 	delim_fpath[3] = 'X'; delim_fpath[4] = 'X'; delim_fpath[5] = 'E';
 	if (mkstemp(&delim_fpath) < 0) {
@@ -192,21 +199,42 @@ Inline void exec_delim_command(void) {
 	free(readtxt);
 }
 #define MAX_TOKEN	8
-#define LUT_SIZE	65536
+#define REGISTRY_SIZE	65536
 
 Local	char	quote_left[MAX_TOKEN];
 Local	char	quote_right[MAX_TOKEN];
 Local	char	comment_left[MAX_TOKEN];
 Local	char	comment_right[MAX_TOKEN];
 Local	char	divert_mark[MAX_TOKEN];
-Local	char	wrap_mark[MAX_TOKEN];
+Local	char	undivert_mark[MAX_TOKEN];
 Local 	char	delim_left[MAX_TOKEN];
 Local	char	delim_right[MAX_TOKEN];
 Local	char	argnum_sigil[MAX_TOKEN];
 Local	char	engage_sigil[MAX_TOKEN];
 Local	char	sep_token[MAX_TOKEN];
 
+Local	bool	tokens_registry[REGISTRY_SIZE];
+
+Inline void zero_registry(void) {
+	memset(&tokens_registry[0], false, sizeof(bool) * REGISTRY_SIZE);
+}
+
+Inline void register_token(char* token) {
+	uint16_t hash = 0;
+	char	 c;
+	
+	while ((c = *token++))
+		hash = (hash * 33) + c;
+
+	if (tokens_registry[hash] == true) {
+		ERR_OUT(ERR_TOKEN_REREGISTER, ECODE_TOKEN_REREGISTER);
+	}
+
+	tokens_registry[hash] = true;
+}
+
 Inline void set_token(char* token, char* value) {
+	register_token(value);
 	memset(&token[0], 0, MAX_TOKEN);
 	memmove(&token[0], &value[0], MAX_TOKEN);
 }
@@ -240,11 +268,11 @@ Local wchar_t*	aux_tert;
 Local wchar_t*	aux_quat;
 Local wchar_t*	aux_result;
 
-
 Inline void translit(int action) {
 	#define INPUT 		aux_prim
 	#define SRCMAP		aux_sec
 	#define DSTMAP		aux_tert
+
 	wchar_t 	wc;
 	wchar_t* 	wcp;
 	size_t		offs;
@@ -327,6 +355,32 @@ Inline void cat_file(void) {
 	free(text);
 
 	#undef FILE_PATH
+}
+
+Inline void include_file(void) { cat_file(); }
+
+#define OUT_TIME_MAX 1024
+
+Inline void format_time(void) {
+	#define FMT	aux_prim
+
+	char out_time[OUT_TIME_MAX];
+	time_t t;
+	struct tm* tmp;
+
+	t 	= time(NULL);
+	tmp 	= localime(&t);
+	if (tmp == NULL) {
+		ERR_OUT(ERR_FORMAT_TIME, ECODE_FORMAT_TIME);
+	}
+
+	if (strftime(outstr, OUT_TIME_MAX, fmt, tmp) == 0) {
+		ERR_OUT(ERR_FORMAT_TIME, ECODE_FORMAT_TIME);
+	}
+
+	fputs(&out_time[0], output);
+
+	#undef FMT
 }
 
 Local void do_at_exit(void) {
