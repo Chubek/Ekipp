@@ -117,7 +117,7 @@ Inline void switch_output(FILE* stream) {
 	output  = stream;
 }
 
-Inline void unswitch_divert(void) {
+Inline void unswitch_output(void) {
 	output	= hold;
 }
 
@@ -192,7 +192,6 @@ Local	char*		exec_cmd;
 Local	wchar_t*	exec_strcmp;
 Local	wchar_t*   	exec_strne;
 Local	wchar_t*	exec_streq;
-
 
 Inline void ifelse_execmatch(void) {
 	FILE* pipe;
