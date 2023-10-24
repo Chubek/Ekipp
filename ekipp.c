@@ -55,7 +55,12 @@ Inline void dump_symtable(void) {
 
 
 #define NUM_DIVERT 	9
+
+#ifdef __unix__
 #define NULL_DEVICE 	"/dev/null"
+#else
+#define NULL_DEVICE	"nul"
+#endif
 
 Local   FILE*		divert_streams[NUM_DIVERT];
 Local 	wchar_t*	divert_strings[NUM_DIVERT];
@@ -66,8 +71,8 @@ Local	int		current_divert_idx;
 Local	FILE*		output;
 Local	FILE*		hold;
 
-#define OUTPUT(ws) 	(fputws(ws, output))
-#define OUTPUT_DIVERT(ws) (fputws(ws, current_divert))
+#define OUTPUT(ws) 		(fputws(ws, output))
+#define OUTPUT_DIVERT(ws) 	(fputws(ws, current_divert))
 
 Inline void set_divert(int n) {
 	if (n > NUM_DIVERT) {
@@ -301,8 +306,10 @@ Inline bool token_is(char* token, char* inquiry) {
 }
 
 External  void 		yyinvoke(wchar_t* code);
+External  void		yyforeach(wchar_t* code, wchar_t* arg);
 Local	  wchar_t* 	invoke_argv[MAX_ARG];
 Local	  size_t	invoke_argc = 0;
+Local	  wchar_t*	keyword;
 
 Inline void invoke_addarg(wchar_t* arg) {
 	invoke_argv[invoke_argc++] = wcsdup(arg);
@@ -319,11 +326,25 @@ Inline void invoke_macro(wchar_t *id) {
 	yyinvoke(macro);
 }
 
+Inline void foreach_macro(wchar_t* macro, char* kwd) {
+	keyword = wcsdup(kwd);
+	while (--invoke_argc) {
+		yyforeach(macro, invoke_argv[invoke_argc]);
+	}
+	
+}
+
 Local wchar_t*	aux_prim;
 Local wchar_t*	aux_sec;
 Local wchar_t*	aux_tert;
-Local wchar_t*	aux_quat;
-Local wchar_t*	aux_result;
+
+Inline void set_aux(wchar_t** aux, wchar* value) {
+	*aux = wcsdup(value);
+}
+
+Inline void free_aux(wchar_t* aux) {
+	free(aux);
+}
 
 Inline void translit(int action) {
 	#define INPUT 		aux_prim
@@ -345,6 +366,8 @@ Inline void translit(int action) {
 			fputwc(wc, output);
 	}
 	OUTPUT(&INPUT[++offs]);
+
+	free_aux(INPUT); free_aux(SRCMAP); free_aux(DSTMAP);
 
 	#undef INPUT
 	#undef SRCMAP
@@ -383,6 +406,7 @@ Inline void list_dir(void) {
 	}
 
 	closedir(stream);
+	free_aux(DIR_PATH);
 
 	#undef DIR_PATH
 }
@@ -411,6 +435,8 @@ Inline void cat_file(void) {
 	fclose(stream);
 	free(text);
 
+	free_aux(FILE_PATH);
+
 	#undef FILE_PATH
 }
 
@@ -436,6 +462,8 @@ Inline void format_time(void) {
 	}
 
 	fputs(&out_time[0], output);
+
+	free_aux(FMT);
 
 	#undef FMT
 }
