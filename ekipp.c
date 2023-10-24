@@ -64,6 +64,7 @@ Local	FILE*		current_divert;
 Local	FILE*		null_divert;
 Local	int		current_divert_idx;
 Local	FILE*		output;
+Local	FILE*		hold;
 
 #define OUTPUT(ws) 	(fputws(ws, output))
 #define OUTPUT_DIVERT(ws) (fputws(ws, current_divert))
@@ -86,6 +87,7 @@ Inline void set_divert(int n) {
 		current_divert_idx = n;
 	}
 }
+
 
 Inline void unset_divert(int n) {
 	if (n < 0) {
@@ -110,7 +112,18 @@ Inline void free_set_diverts(void) {
 	}
 }
 
+Inline void switch_output(FILE* stream) {
+	hold 	= output;
+	output  = stream;
+}
+
+Inline void unswitch_divert(void) {
+	output	= hold;
+}
+
+#define NMATCH		1
 Local 	regex_t		reg_cc;
+Local	regmatch_t	reg_pmatch[NMATCH];
 Local	char*		reg_input;
 Local	char*		reg_pattern;
 Local	wchar_t*	reg_matchmsg;
@@ -126,6 +139,51 @@ Inline void ifelse_regmatch(void) {
 		: OUTPUT(reg_matchmsg);
 
 	regfree(&reg_cc);
+}
+
+Inline void search_file(FILE* stream) {
+	wchar_t* line_str;
+	wchar_t* word;
+	size_t	 line_len;
+	regoff_t start;
+	regoff_t len;
+
+	if (regcomp(&reg_cc, reg_pattern, 0) < 0) {
+		ERR_OUT(ERR_REG_COMP, ECODE_REG_COMP);
+	}
+
+	for (int i = 0; i; i++) {
+		if (!getline((char**)&line_str, &line_len, stream)) {
+			if (!regexec(&reg_cc, 
+					(char*)line_str, 
+					NMATCH, 
+					reg_pmatch, 
+					0)) {
+				start = reg_pmatch[0].rm_so;
+				len   = reg_pmatch[0].rm_eo - start;
+				wcsncpy(&word[0], &line[start], len);
+				OUTPUT(word);
+				free(word);
+			}
+		}
+		free(line_str);
+	}
+
+	regfree(&reg_cc);
+
+}
+
+Inline void open_search_close(char* path) {
+	FILE* stream = fopen(path, "r");
+	search_file(stream);
+	fclose(stream);
+}
+
+extern FILE* yyin;
+
+Inline void yyin_search(void) {
+	FILE* yyin_cpy = yyin;
+	search_file(yyin_cpy);
 }
 
 #define FLUSH_STDIO() (fflush(stdin), fflush(stdout), fflush(stderr))
