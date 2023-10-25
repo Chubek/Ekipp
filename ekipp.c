@@ -615,6 +615,10 @@ Inline void format_time(void) {
 	#undef FMT
 }
 
+Local void dnl(void) {
+	scanf(yyin, "%*s\n", NULL);
+}
+
 Local void do_at_exit(void) {
 	dump_symtable();
 	dump_stack();
