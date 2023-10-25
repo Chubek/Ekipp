@@ -13,3 +13,4 @@ config.h
 *.a
 *.so
 *.la
+*.gen
