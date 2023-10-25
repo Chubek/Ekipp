@@ -30,7 +30,9 @@ extern   FILE*    yyin;
 extern   char	  keyletter;
 
 void 	yyinvoke(wchar_t* code);
+int	yyparse(void);
 bool  	yyexpand = false;
+
 
 #define OUTPUT(ws) 	fputws(ws, output)
 %}
@@ -320,9 +322,16 @@ expr : expr '+' NUM		{ $$ = $<ival>1 + $<ival>3;      }
      | NUM  DECR		{ $$ = $<ival>2++;		 }
      | NUM			{ $$ = $<ival>1;	         }
      ;
+%%
 
+#include "yy.lex.h"
 
-
-
-
-
+void yyinvoke(wchar_t*	code) {
+	FILE* yyinhold 	= yyin;
+	yyin 	 	= fmemopen(code, wcslen(code), "r");
+	yyexpand 	= true;
+	yyparse();
+	fclose(yyin);
+	yyin 		= yyinhold;
+	yyexpand 	= false;
+}
