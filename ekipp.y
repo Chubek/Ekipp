@@ -21,6 +21,7 @@ extern   char    engage_sigil[MAX_TOKEN];
 extern   char    cond_sigil[MAX_TOKEN];  
 extern   char    search_sigil[MAX_TOKEN];
 extern   char    aux_sigil[MAX_TOKEN];
+extern 	 char	 call_sigil[MAX_TOKEN];
 
 extern	 wchar_t* fmt;
 extern   int 	  yylex(void);
@@ -33,18 +34,48 @@ extern   char	  keyletter;
 
 %token
 
+%start mainop
+
 %%
 
-foreach : foreachset args '|'
-	    foreachbody;       { invoke_dumpargs();		 }
+mainop : call
+       | foreach
+       | print
+       | tok
+       | push
+       | pop
+       | define
+       | undef
+       | searchfile
+       | auxil
+       | exec
+       | eval
+       ;
+
+body : argnum
+     | mainop
+     ;
+
+call : callset args	       { 
+     					invoke_macro($1); 
+					invoke_dumpargs();
+			       }
+     ;
+
+callset : CALL_SIGIL
+		'>' IDENT      { $$ = $<wval>3; 		 }
+	;
+
+foreach : foreachset args
+	   '[' foreachbody ']' { invoke_dumpargs();		 }
+	;
 
 foreachbody : KEYLETTER	       { invoke_printnext();		 }
 	    | body	       { OUTPUT($1);			 }
 	    ;
 
-foreachset : ENGAGE_SIGIL
-	  	FOREACH '>' 
-		ASCII          { keyletter = $<cval>4;	         } 
+foreachset : CALL_SIGIL
+	       '>' ASCII       { keyletter = $<cval>4;	         } 
 	   ;
 
 print : printset
@@ -65,6 +96,10 @@ argset : ARGUMENT	        { invoke_addarg($<wval>1);	 }
        ;
 
 printset : ENGAGE_SIGIL PRINT;
+
+tok : righttok
+    | lefttok
+    ;
 
 righttok : righttokset
 	      'q' SQUOTE       { set_token(&quote_right, $<sval>3);  }
@@ -92,15 +127,17 @@ lefttokset : ENGAGE_SIGIL
 	   ;
 
 sigil : sigilset 
-        'e' SQUOTE	       { set_token(&engage_sigil, $<sval>3); }
+        'e' SQUOTE	       { set_token(&engage_sigil, $<sval>3);  }
       | sigilset
         'a' SQUOTE	       { set_token(&argnum_sigil, $<svaal>3); }
       | sigilset
-        'c' SQUOTE	       { set_token(&cond_sigil, $<sval>3);   }
+        'c' SQUOTE	       { set_token(&cond_sigil, $<sval>3);    }
       | sigilset
-        's' SQUOTE	       { set_token(&search_sigil, $<sval>3); }
+        's' SQUOTE	       { set_token(&search_sigil, $<sval>3);  }
       | sigilset
-        'x' SQUOTE	       { set_token(&aux_sigil, $<sval>3);   }
+        'x' SQUOTE	       { set_token(&aux_sigil, $<sval>3);     }
+      | sigilset
+        '^' SQUOTE	       { set_token(&call_sigil, $<sval>3);    }
       ;
 
 sigilset : ENGAGE_SIGIL
@@ -115,7 +152,7 @@ pop : popset '|'
     ;
 
 push : pushset '|'
-         IDENT '=' body		{ push_stack($<wval>3, $5);     }
+         IDENT '=' body ';'     { push_stack($<wval>3, $5);     }
      ;
 
 popset : ENGAGE_SIGIL POP;
@@ -127,7 +164,7 @@ undef : undefset '|'
       ;
 
 define : defset '|'
-	      IDENT '=' body    { insert_symbol($<wval>3, $5);  }
+	    IDENT '=' body ';' { insert_symbol($<wval>3, $5);  }
        ;
 
 undefset : ENGAGE_SIGIL UNDEF;
