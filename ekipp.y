@@ -21,7 +21,6 @@ extern   char    engage_sigil[MAX_TOKEN];
 extern   char    cond_sigil[MAX_TOKEN];  
 extern   char    search_sigil[MAX_TOKEN];
 extern   char    aux_sigil[MAX_TOKEN];
-extern 	 char	 call_sigil[MAX_TOKEN];
 
 extern	 wchar_t* fmt;
 extern   int 	  yylex(void);
@@ -50,21 +49,28 @@ mainop : call
        | auxil
        | exec
        | eval
+       | delimx
+       | ifmatch
+       | Ifexec
        ;
 
 body : argnum
+     | SQUOTE
+     | WQUOTE
      | mainop
      ;
 
-call : callset args	       { 
-     					invoke_macro($1); 
+
+call : '$' IDENT args	       { 
+     					invoke_macro($<wval>2); 
 					invoke_dumpargs();
 			       }
+     | ESCAPE '$' IDENT args   {
+					fputc('$', output);
+					OUTPUT($<wval>3);
+					invoke_printargs(L" ");
+			       }
      ;
-
-callset : CALL_SIGIL
-		'>' IDENT      { $$ = $<wval>3; 		 }
-	;
 
 foreach : foreachset args
 	   '[' foreachbody ']' { invoke_dumpargs();		 }
@@ -74,8 +80,8 @@ foreachbody : KEYLETTER	       { invoke_printnext();		 }
 	    | body	       { OUTPUT($1);			 }
 	    ;
 
-foreachset : CALL_SIGIL
-	       '>' ASCII       { keyletter = $<cval>4;	         } 
+foreachset : ENGAGE_SIGIL
+	       '|' ASCII       { keyletter = $<cval>4;	         } 
 	   ;
 
 print : printset
@@ -137,7 +143,7 @@ sigil : sigilset
       | sigilset
         'x' SQUOTE	       { set_token(&aux_sigil, $<sval>3);     }
       | sigilset
-        '^' SQUOTE	       { set_token(&call_sigil, $<sval>3);    }
+        'l' SQUOTE	       { set_token(&call_sigil, $<sval>3);    }
       ;
 
 sigilset : ENGAGE_SIGIL
@@ -275,7 +281,7 @@ execset : ENGAGE_SIGIL EXEC;
 evalset : ENGAGE_SIGIL EVAL;
 
 argnum : ARGNUM_SIGIL ARGNUM    { invoke_printarg($<ival>2);        }
-       | ARGNUM_SIGIL WQUOTE   { invoke_printargs($<wval>2);       }
+       | ARGNUM_SIGIL WQUOTE    { invoke_printargs($<wval>2);       }
        ;
 
 expr : expr '+' NUM		{ $$ = $<ival>1 + $<ival>3;      }
@@ -294,6 +300,8 @@ expr : expr '+' NUM		{ $$ = $<ival>1 + $<ival>3;      }
      | expr POW NUM		{ $$ = powl($<ival>1, $<ival>3); }
      | INCR NUM			{ $$ = ++$<ival>2;		 }
      | DECR NUM			{ $$ = --$<ival>2;		 }
+     | NUM  INCR		{ $$ = $<ival>2++;		 }
+     | NUM  DECR		{ $$ = $<ival>2++;		 }
      | NUM			{ $$ = $<ival>1;	         }
      ;
 
