@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <wchar.h>
 
 #include "ekipp.h"
 
@@ -21,15 +22,49 @@ extern   char    cond_sigil[MAX_TOKEN];
 extern   char    search_sigil[MAX_TOKEN];
 extern   char    aux_sigil[MAX_TOKEN];
 
-extern   FILE*   output;
+extern	 wchar_t* fmt;
+extern   int 	  yylex(void);
+extern   FILE*    output;
+extern   FILE*    yyin;
+extern   char	  keyletter;
 
-int 	yylex(void);
-FILE* 	yyin;
+#define OUTPUT(ws) 	fputws(ws, output)
 %}
 
 %token
 
 %%
+
+foreach : foreachset args '|'
+	    foreachbody;       { invoke_dumpargs();		 }
+
+foreachbody : KEYLETTER	       { invoke_printnext();		 }
+	    | body	       { OUTPUT($1);			 }
+	    ;
+
+foreachset : ENGAGE_SIGIL
+	  	FOREACH '>' 
+		ASCII          { keyletter = $<cval>4;	         } 
+	   ;
+
+print : printset
+          '|' ARGV ARGNUM      { print_argv($<ival>4);		 }
+      | printset
+          '|' ENVIRON SQUOTE   { print_env($<sval>4);		 }
+      | printset
+          '|' FORMATTED fmt    { print_formatted();		 }
+      ;
+
+fmt : WQUOTE args  	       { fmt = $<wval>1;		 }
+    ;
+
+args : '(' argset ')'
+
+argset : ARGUMENT	        { invoke_addarg($<wval>1);	 }
+       | argset ',' ARGUMENT    { invoke_addarg($<wval>3);	 }
+       ;
+
+printset : ENGAGE_SIGIL PRINT;
 
 righttok : righttokset
 	      'q' SQUOTE       { set_token(&quote_right, $<sval>3);  }
@@ -100,20 +135,20 @@ undefset : ENGAGE_SIGIL UNDEF;
 defset : ENGAGE_SIGIL DEFINE;
 
 searchfile : searchset '|'
-	       SQUOTED		{ open_search_close($<sval>2);  }
+	       SQUOTE		{ open_search_close($<sval>2);  }
 	   | searchset '|'
 	       CURRENT          { yyin_search();		}
 	   ;
 
 searchset : SEARCH_SIGIL
-	      SQUOTED		{ reg_pattern = $<sval>2;	}
+	      SQUOTE		{ reg_pattern = $<sval>2;	}
 	  ;
 
 ifexec : COND_SIGIL
-            SQUOTED ','
-	    WQUOTED ','
-	    WQUOTED ','
-	    WQUOTED
+            SQUOTE ','
+	    WQUOTE ','
+	    WQUOTE ','
+	    WQUOTE
 	    '|' EXECIF 		{
 	    				exec_cmd     = $<sval>2;
 					exec_strcmp  = $<wval>3;
@@ -125,10 +160,10 @@ ifexec : COND_SIGIL
 	;
 
 ifmatch : COND_SIGIL
-	    SQUOTED ','
-	    SQUOTED ','
-	    WQUOTED ','
-	    WQUOTED
+	    SQUOTE ','
+	    SQUOTE ','
+	    WQUOTE ','
+	    WQUOTE
 	    '|' MATCHIF		{
 	    				reg_input       = $<sval>2;
 					reg_pattern     = $<sval>3;
@@ -151,11 +186,11 @@ auxil : auxset
       ;
 
 auxset : AUXIL_SIGIL
-           WQUOTED		{ set_auxil(&auxil_prim, $<wval>2); }
+           WQUOTE		{ set_auxil(&auxil_prim, $<wval>2); }
        | auxset ','
-	   WQUOTED              { set_auxil(&auxil_sec, $<wval>3);  }
+	   WQUOTE              { set_auxil(&auxil_sec, $<wval>3);  }
        | auxset ','
-	   WQUOTED ',' WQUOTED   {
+	   WQUOTE ',' WQUOTE   {
 	  				set_auxil(&auxil_sec, $<wval>3);
 					set_auxil(&auxil_tert, $<wval>4);
 				}
@@ -188,7 +223,7 @@ delimx : execset '|'
        ;
 
 exec : execset '|'
-           SQUOTED	        { 
+           SQUOTE	        { 
 	  				exec_cmd = $<wval>3;
 					exec_command();
 				}
@@ -203,7 +238,7 @@ execset : ENGAGE_SIGIL EXEC;
 evalset : ENGAGE_SIGIL EVAL;
 
 argnum : ARGNUM_SIGIL ARGNUM    { invoke_printarg($<ival>2);        }
-       | ARGNUM_SIGIL WQUOTED   { invoke_printargs($<wval>2);       }
+       | ARGNUM_SIGIL WQUOTE   { invoke_printargs($<wval>2);       }
        ;
 
 expr : expr '+' NUM		{ $$ = $<ival>1 + $<ival>3;      }
