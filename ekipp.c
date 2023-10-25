@@ -20,7 +20,7 @@
 
 #include "ekipp.h"
 
-#define ERR_OUT(e, c) do { fputs(e, stderr); exit(c);  } while (0)
+#define EEXIT(e, c) do { fputs(e, stderr); exit(c);  } while (0)
 
 Local struct LinkedList {
 	struct LinkedList*		next;
@@ -138,7 +138,7 @@ Inline void open_null_file(void) {
 					NULL_NAME, 
 					S_IWUSR | S_IFCHR, 
 					null_dev) < 0)) {
-		ERR_OUT(ERR_OPEN_NULL, ECODE_OPEN_NULL);
+		EEXIT(ERR_OPEN_NULL, ECODE_OPEN_NULL);
 	}
 	null_divert = fdopen(null_fd, "w");
 }
@@ -153,7 +153,7 @@ Inline void destroy_null_divert(void) {
 
 Inline void set_divert(int n) {
 	if (n > NUM_DIVERT) {
-		ERR_OUT(ERR_NUM_DIVERT, ECODE_NUM_DIVERT);
+		EEXIT(ERR_NUM_DIVERT, ECODE_NUM_DIVERT);
 	}
 	else if (n < 0) {
 		if (!null_divert) 
@@ -173,9 +173,9 @@ Inline void set_divert(int n) {
 
 Inline void unset_divert(int n) {
 	if (n < 0) {
-		ERR_OUT(ERR_UNSET_NULLDIV, ECODE_UNSET_NULLDIV);
+		EEXIT(ERR_UNSET_NULLDIV, ECODE_UNSET_NULLDIV);
 	} else if (n >= NUM_DIVERT) {
-		ERR_OUT(ERR_NUM_DIVERT, ECODE_NUM_DIVERT);
+		EEXIT(ERR_NUM_DIVERT, ECODE_NUM_DIVERT);
 	} else {
 		fwrite(divert_strings[n], divert_lengths[n], 1, output);
 		free(divert_strings[n]);
@@ -214,7 +214,7 @@ Local	wchar_t*	reg_nomatchmsg;
 
 Inline void ifelse_regmatch(void) {
 	if (regcomp(&reg_cc, reg_pattern, REG_NOSUB) < 0) {
-		ERR_OUT(ERR_REG_COMP, ECODE_REG_COMP);
+		EEXIT(ERR_REG_COMP, ECODE_REG_COMP);
 	}
 
 	regexec(&reg_cc, reg_input, 0, NULL, 0)
@@ -232,7 +232,7 @@ Inline void search_file(FILE* stream) {
 	regoff_t len;
 
 	if (regcomp(&reg_cc, reg_pattern, 0) < 0) {
-		ERR_OUT(ERR_REG_COMP, ECODE_REG_COMP);
+		EEXIT(ERR_REG_COMP, ECODE_REG_COMP);
 	}
 
 	for (int i = 0; i; i++) {
@@ -280,7 +280,7 @@ Inline void ifelse_execmatch(void) {
 	FILE* pipe;
 	FLUSH_STDIO();
 	if (!(pipe = popen(exec_cmd, "r"))) {
-		ERR_OUT(ERR_EXEC_SHELL, ECODE_EXEC_SHELL);
+		EEXIT(ERR_EXEC_SHELL, ECODE_EXEC_SHELL);
 	}
 
 	fseek(pipe, 0, SEEK_END);
@@ -304,23 +304,23 @@ Inline void ifelse_execmatch(void) {
 Inline void exec_command(void) {
 	FILE* stream = popen(exec_cmd, "r");
 	if (!stream) {
-		ERR_OUT(ERR_EXEC_CMD, ECODE_EXEC_CMD);	
+		EEXIT(ERR_EXEC_CMD, ECODE_EXEC_CMD);	
 	}
 
 	if (fseek(stream, 0, SEEK_END) < 0) {
-		ERR_OUT(ERR_EXEC_READ, ECODE_EXEC_READ);
+		EEXIT(ERR_EXEC_READ, ECODE_EXEC_READ);
 	}
 
 	long len;
 	if ((len = ftell(stream))) {
-		ERR_OUT(ERR_EXEC_READ, ECODE_EXEC_READ);
+		EEXIT(ERR_EXEC_READ, ECODE_EXEC_READ);
 	}
 
 	rewind(stream);
 
 	wchar_t* text = calloc(len, sizeof(wchar_t));
 	if (fread(text, len, sizeof(wchar_t), stream) < 0) {
-		ERR_OUT(ERR_EXEC_READ, ECODE_EXEC_READ);
+		EEXIT(ERR_EXEC_READ, ECODE_EXEC_READ);
 	}
 
 	OUTPUT(text);
@@ -339,15 +339,15 @@ Inline void init_delim_stream(wchar_t* text, size_t len) {
 	delim_fpath[0] = 'X'; delim_fpath[1] = 'X'; delim_fpath[2] = 'X';
 	delim_fpath[3] = 'X'; delim_fpath[4] = 'X'; delim_fpath[5] = 'E';
 	if (mkstemp(&delim_fpath) < 0) {
-		ERR_OUT(ERR_DELIM_FPATH, ECODE_DELIM_FPATH);
+		EEXIT(ERR_DELIM_FPATH, ECODE_DELIM_FPATH);
 	}
 
 	if (!(delim_stream = fopen(&delim_fpath[0], "w"))) {
-		ERR_OUT(ERR_DELIM_OPEN, ECODE_DELIM_OPEN);
+		EEXIT(ERR_DELIM_OPEN, ECODE_DELIM_OPEN);
 	}
 
 	if (fwrite(text, len, sizeof(wchar_t), delim_stream) < 0) {
-		ERR_OUT(ERR_DELIM_WRITE, ECODE_DELIM_WRITE);
+		EEXIT(ERR_DELIM_WRITE, ECODE_DELIM_WRITE);
 	}
 }
 
@@ -355,7 +355,7 @@ Inline void exec_delim_command(void) {
 	FLUSH_STDIO();
 	fclose(delim_stream);
 	if (!(delim_stream = freopen(&delim_fpath[0], "r", stdin))) {
-		ERR_OUT(ERR_DELIM_REOPEN, ECODE_DELIM_REOPEN);
+		EEXIT(ERR_DELIM_REOPEN, ECODE_DELIM_REOPEN);
 	}
 
 	FILE* pipe = popen(delim_command, "r");
@@ -411,7 +411,7 @@ Inline void register_token(char* token) {
 		hash = (hash * 33) + c;
 
 	if (tokens_registry[hash] == true) {
-		ERR_OUT(ERR_TOKEN_REREGISTER, ECODE_TOKEN_REREGISTER);
+		EEXIT(ERR_TOKEN_REREGISTER, ECODE_TOKEN_REREGISTER);
 	}
 
 	tokens_registry[hash] = true;
@@ -483,7 +483,7 @@ Inline void invoke_macro(wchar_t *id) {
 	if (!macro)
 		macro = get_stack_value(id);
 	if (!macro) {
-		ERR_OUT(ERR_UNKNOWN_MACRO, ECODE_UNKNOWN_MACRO);
+		EEXIT(ERR_UNKNOWN_MACRO, ECODE_UNKNOWN_MACRO);
 	}
 	yyinvoke(macro);
 }
@@ -582,7 +582,7 @@ Inline void list_dir(void) {
 
 	DIR* stream = opendir(DIR_PATH);
 	if (!stream) {
-		ERR_OUT(ERR_NO_DIR, ECODE_NO_DIR);
+		EEXIT(ERR_NO_DIR, ECODE_NO_DIR);
 	}
 
 	struct dirent* entry;
@@ -608,7 +608,7 @@ Inline void cat_file(void) {
 
 	FILE*	stream	= fopen(FILE_PATH, "r");
 	if (fseek(stream, 0, SEEK_END) < 0) {
-		ERR_OUT(ERR_CAT_FAIL, ECODE_CAT_FAIL);
+		EEXIT(ERR_CAT_FAIL, ECODE_CAT_FAIL);
 	}
 
 	long len = ftell(stream);
@@ -621,7 +621,7 @@ Inline void cat_file(void) {
 
 	wchar_t* text = calloc(len, sizeof(wchar_t));
 	if (fread(&text[0], len, sizeof(wchar_t), stream) < 0) {
-		ERR_OUT(ERR_CAT_FAIL, ECODE_CAT_FAIL);
+		EEXIT(ERR_CAT_FAIL, ECODE_CAT_FAIL);
 	}
 
 	OUTPUT(text);
@@ -648,11 +648,11 @@ Inline void format_time(void) {
 	t 	= time(NULL);
 	tmp 	= localime(&t);
 	if (tmp == NULL) {
-		ERR_OUT(ERR_FORMAT_TIME, ECODE_FORMAT_TIME);
+		EEXIT(ERR_FORMAT_TIME, ECODE_FORMAT_TIME);
 	}
 
 	if (strftime(outstr, OUT_TIME_MAX, fmt, tmp) == 0) {
-		ERR_OUT(ERR_FORMAT_TIME, ECODE_FORMAT_TIME);
+		EEXIT(ERR_FORMAT_TIME, ECODE_FORMAT_TIME);
 	}
 
 	fputs(&out_time[0], output);
@@ -666,7 +666,7 @@ Local void dnl(void) {
 	scanf(yyin, "%*s\n", NULL);
 }
 
-Local void do_at_exit(void) {
+void do_at_exit(void) {
 	dump_symtable();
 	dump_stack();
 	free_set_diverts();
