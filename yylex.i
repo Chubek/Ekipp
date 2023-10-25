@@ -17,23 +17,33 @@ External    char aux_sigil[MAX_TOKEN];
 char*           str_ascii;
 wchar_t*        str_wide;
 size_t          str_len;
+char            keyletter;
+char            keycompare;
 
 fscanf(yyin, &fmt_comment[0], NULL);
 
+if ((keycompare = fgetc(yyin)) == keyletter)
+        return KEYLETTER;
+
+ungetc(keycompare, yyin);
+
 if ((str_len = fwscanf(yyin, (wchar_t*)&fmt_delim[0], str_wide)) > 0) {
         yylval.wval = wcsndup(str_wide, str_len);
+        yylval.lenv = str_len;
         free(str_wide);
         return DELIMITED;
 }
 
 if ((str_len = fwscanf(yyin, (wchar_t*)&fmt_quote[0], str_wide)) > 0) {
         yylval.wval = wcsdup(str_wide, str_len);
+        yylval.lenv = str_len;
         free(str_wide);
         return WQUOTE;
 }
 
 if ((str_len = fscanf(yyin, &fmt_quote[0], str_ascii)) > 0) {
         yylval.sval = strndup(str_wide, str_len);
+        yylval.lenv = str_len;
         free(str_ascii);
         return SQUOTE;
 }

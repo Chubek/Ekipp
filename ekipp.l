@@ -57,6 +57,11 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 "pop"		return POP;
 "push"		return PUSH;
 
+"current"	return CURRENT;
+"sigils"	return SIGILS;
+"left-tokens"	return LEFT_TOKENS;
+"right-tokens"	return RIGHT_TOKENS;
+
 ">="		return GE;
 "<="		return LE;
 "=="		return EQ;
