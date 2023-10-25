@@ -20,6 +20,8 @@
 
 #include "ekipp.h"
 
+#include "errors.gen"
+
 #define EEXIT(e, c) do { fputs(e, stderr); exit(c);  } while (0)
 
 Local struct LinkedList {
@@ -85,7 +87,7 @@ Inline void push_stack(wchar_t* name, wchar_t* value) {
 	stack_pointer++;
 }
 
-Inline wchar_t*	pop_stack(wchar_t* name) {
+Inline wchar_t*	pop_stack_value(wchar_t* name) {
 	size_t len = wcslen(name);
 	size_t ptr = stack_pointer;
 
@@ -97,7 +99,7 @@ Inline wchar_t*	pop_stack(wchar_t* name) {
 	return NULL;
 }
 
-Inline wchar_t* get_stack_pop(void) {
+Inline wchar_t* stack_pop(void) {
 	return Defstack[--stack_pointer].value;
 }
 
@@ -329,13 +331,13 @@ Inline void exec_command(void) {
 }
 
 Local FILE*		delim_stream;
-Local char		delim_fpath[MAX_FILEPATH];
+Local char		delim_fpath[FILENAME_MAX];
 Local char*		delim_command;	
 
 #define OUTPUT_DELIM(ws) (fputws(ws, delim_stream))
 
 Inline void init_delim_stream(wchar_t* text, size_t len) {
-	memset(&delim_fpath[0], 0, MAX_FILEPATH);
+	memset(&delim_fpath[0], 0, FILENAME_MAX);
 	delim_fpath[0] = 'X'; delim_fpath[1] = 'X'; delim_fpath[2] = 'X';
 	delim_fpath[3] = 'X'; delim_fpath[4] = 'X'; delim_fpath[5] = 'E';
 	if (mkstemp(&delim_fpath) < 0) {
@@ -425,21 +427,28 @@ Inline void set_token(char* token, char* value) {
 }
 
 Inline void reformat_fmts(void) {
-	sprintf(&fmt_delim[0],   "%s%%s%s", &delim_left[0],   &delim_right[0]);
-	sprintf(&fmt_comment[0], "%s%%*s%s", &comment_left[0], &comment_right[0]);
-	sprintf(&fmt_quote[0],   "%s%%s%s", &quote_left[0],   &quote_right[0]);
+	sprintf(&fmt_delim[0], 
+			"%s%%s%s", &delim_left[0], &delim_right[0]);
+	
+	sprintf(&fmt_comment[0], 
+			"%s%%*s%s", &comment_left[0], &comment_right[0]);
+	sprintf(&fmt_quote[0], 
+			"%s%%s%s", &quote_left[0], &quote_right[0]);
 }
 
-Inline void token_is(char* token, char* cmp, size_t len) {
+Inline bool token_is(char* token, char* cmp, size_t len) {
 	return !strncmp(token, cmp, len);
 }
 
 
 External  void 		yyinvoke(wchar_t* code);
-External  void		yyforeach(wchar_t* code, wchar_t* arg);
 External  char		keyletter;
 
-Local	  wchar_t* 	invoke_argv[MAX_ARG];
+#ifndef ARG_MAX
+#define ARG_MAX		1024
+#endif
+
+Local	  wchar_t* 	invoke_argv[ARG_MAX];
 Local	  size_t	invoke_argc = 0;
 Local	  size_t	invoke_argn = 0;
 
@@ -447,7 +456,7 @@ Inline void invoke_addarg(wchar_t* arg) {
 	invoke_argv[invoke_argc++] = wcsdup(arg);
 }
 
-Inline void invoke_getarg(size_t n) {
+Inline wchar_t* invoke_getarg(size_t n) {
 	return invoke_argv[n];
 }
 
@@ -474,24 +483,18 @@ Inline void invoke_printargs(wchar_t* delim) {
 Inline void invoke_dumpargs(void) {
 	while (--invoke_argc)
 		free(invoke_argv[invoke_argc]);
-	memset(&invoke_argv[0], 0, MAX_ARG * sizeof(wchar_t*));
+	memset(&invoke_argv[0], 0, ARG_MAX * sizeof(wchar_t*));
 	invoke_argn = 0;
 }
 
 Inline void invoke_macro(wchar_t *id) {
 	wchar_t* macro = get_symbol(id);
 	if (!macro)
-		macro = get_stack_value(id);
+		macro = pop_stack_value(id);
 	if (!macro) {
 		EEXIT(ERR_UNKNOWN_MACRO, ECODE_UNKNOWN_MACRO);
 	}
 	yyinvoke(macro);
-}
-
-Inline void foreach_macro(wchar_t* macro) {
-	while (--invoke_argc) {
-		yyforeach(macro, invoke_argv[invoke_argc]);
-	}
 }
 
 Local wchar_t*	fmt;
@@ -505,7 +508,7 @@ Inline void print_formatted(void) {
 		if (wc == L'%' && *fmt != L'%') {
 			f[0] = L'%';
 			f[1] = *fmt++;
-			fwptintf(output, &f[0], invoke_argv[i++]);
+			fwprintf(output, &f[0], invoke_argv[i++]);
 		}
 	}
 
@@ -544,9 +547,9 @@ Inline void translit(int action) {
 	#define SRCMAP		aux_sec
 	#define DSTMAP		aux_tert
 
-	wchar_t 	wc;
-	wchar_t* 	wcp;
-	size_t		offs;
+	wchar_t 	wc   = 0;
+	wchar_t* 	wcp  = 0;
+	size_t		offs = 0;
 	size_t		lendst = wcslen(DSTMAP);
 
 	while ((wc = *INPUT++)) {
@@ -571,7 +574,7 @@ Inline void offset(void) {
 	#define INPUT		aux_prim
 	#define SUB		aux_sec
 
-	fwprintf(output, "%lp", wcsstr(INPUT, SUB) - INPUT);
+	fwprintf(output, L"%lp", wcsstr(INPUT, SUB) - INPUT);
 
 	#undef INPUT
 	#undef SUB
@@ -580,7 +583,7 @@ Inline void offset(void) {
 Inline void list_dir(void) {
 	#define DIR_PATH 	aux_prim
 
-	DIR* stream = opendir(DIR_PATH);
+	DIR* stream = opendir((char*)DIR_PATH);
 	if (!stream) {
 		EEXIT(ERR_NO_DIR, ECODE_NO_DIR);
 	}
@@ -606,7 +609,7 @@ Inline void list_dir(void) {
 Inline void cat_file(void) {
 	#define FILE_PATH	aux_prim
 
-	FILE*	stream	= fopen(FILE_PATH, "r");
+	FILE*	stream	= fopen((char*)FILE_PATH, "r");
 	if (fseek(stream, 0, SEEK_END) < 0) {
 		EEXIT(ERR_CAT_FAIL, ECODE_CAT_FAIL);
 	}
@@ -646,12 +649,12 @@ Inline void format_time(void) {
 	struct tm* tmp;
 
 	t 	= time(NULL);
-	tmp 	= localime(&t);
+	tmp 	= localtime(&t);
 	if (tmp == NULL) {
 		EEXIT(ERR_FORMAT_TIME, ECODE_FORMAT_TIME);
 	}
 
-	if (strftime(outstr, OUT_TIME_MAX, fmt, tmp) == 0) {
+	if (strftime(&out_time[0], OUT_TIME_MAX, (char*)fmt, tmp) == 0) {
 		EEXIT(ERR_FORMAT_TIME, ECODE_FORMAT_TIME);
 	}
 
@@ -663,7 +666,7 @@ Inline void format_time(void) {
 }
 
 Local void dnl(void) {
-	scanf(yyin, "%*s\n", NULL);
+	fscanf(yyin, "%*s\n", NULL);
 }
 
 void do_at_exit(void) {
