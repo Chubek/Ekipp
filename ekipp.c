@@ -298,6 +298,7 @@ Inline void ifelse_execmatch(void) {
 		? OUTPUT(exec_streq)
 		: OUTPUT(exec_strne);
 	free(readtxt);
+	pclose(pipe);
 }
 
 Inline void exec_command(void) {
@@ -323,7 +324,6 @@ Inline void exec_command(void) {
 	}
 
 	OUTPUT(text);
-
 	free(text);
 	pclose(stream);
 }
@@ -334,7 +334,7 @@ Local char*		delim_command;
 
 #define OUTPUT_DELIM(ws) (fputws(ws, delim_stream))
 
-Inline void init_delim_stream(void) {
+Inline void init_delim_stream(wchar_t* text, size_t len) {
 	memset(&delim_fpath[0], 0, MAX_FILEPATH);
 	delim_fpath[0] = 'X'; delim_fpath[1] = 'X'; delim_fpath[2] = 'X';
 	delim_fpath[3] = 'X'; delim_fpath[4] = 'X'; delim_fpath[5] = 'E';
@@ -344,6 +344,10 @@ Inline void init_delim_stream(void) {
 
 	if (!(delim_stream = fopen(&delim_fpath[0], "w"))) {
 		ERR_OUT(ERR_DELIM_OPEN, ECODE_DELIM_OPEN);
+	}
+
+	if (fwrite(text, len, sizeof(wchar_t), delim_stream) < 0) {
+		ERR_OUT(ERR_DELIM_WRITE, ECODE_DELIM_WRITE);
 	}
 }
 
@@ -369,6 +373,8 @@ Inline void exec_delim_command(void) {
 	fread(&readtxt[0], len, sizeof(wchar_t), pipe);
 	OUTPUT(readtxt);
 	free(readtxt);
+	pclose(pipe);
+	fclose(delim_stream);
 }
 #define MAX_TOKEN	8
 #define REGISTRY_SIZE	65536
