@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <string.h>
 #include <wchar.h>
 
@@ -27,6 +28,9 @@ extern   int 	  yylex(void);
 extern   FILE*    output;
 extern   FILE*    yyin;
 extern   char	  keyletter;
+
+void 	yyinvoke(wchar_t* code);
+bool  	yyexpand = false;
 
 #define OUTPUT(ws) 	fputws(ws, output)
 %}
@@ -116,7 +120,7 @@ righttok : righttokset
 	 ;
 
 righttokset : ENGAGE_SIGIL
-	       RIGHT_TOKEN
+	       RIGHT_TOKENS
             ;
 
 
@@ -129,7 +133,7 @@ lefttok : lefttokset
 	;
 
 lefttokset : ENGAGE_SIGIL
-	     LEFT_TOKEN
+	     LEFT_TOKENS
 	   ;
 
 sigil : sigilset 
@@ -147,7 +151,7 @@ sigil : sigilset
       ;
 
 sigilset : ENGAGE_SIGIL
-	    SIGIL
+	    SIGILS
 	;
 
 dnl : DNL_TOKEN			{ dnl();			}
@@ -158,7 +162,8 @@ pop : popset '|'
     ;
 
 push : pushset '|'
-         IDENT '=' body ';'     { push_stack($<wval>3, $5);     }
+         IDENT '=' body 
+	           NEWLINE     { push_stack($<wval>3, $5);     }
      ;
 
 popset : ENGAGE_SIGIL POP;
@@ -170,7 +175,8 @@ undef : undefset '|'
       ;
 
 define : defset '|'
-	    IDENT '=' body ';' { insert_symbol($<wval>3, $5);  }
+	    IDENT '=' body
+	    	      NEWLINE  { insert_symbol($<wval>3, $5);  }
        ;
 
 undefset : ENGAGE_SIGIL UNDEF;
@@ -236,7 +242,7 @@ auxset : AUXIL_SIGIL
 	   WQUOTE ',' WQUOTE   {
 	  				set_auxil(&auxil_sec, $<wval>3);
 					set_auxil(&auxil_tert, $<wval>4);
-				}
+			       }
        ;
          			
 
@@ -260,10 +266,14 @@ divset : ENGAGE_SIGIL DIVERT;
 
 delimx : execset '|'
             DELIMITED		{ 
-					delim_command = $<sval>3;
+					init_delim_stream($<wval>3,
+							$<lenv>$);
 					exec_delim_command();
 				}
        ;
+
+delimset : execset 
+	     '>' SQUOTE		{ delim_cmd = $<sval>3; }
 
 exec : execset '|'
            SQUOTE	        { 
@@ -280,8 +290,14 @@ execset : ENGAGE_SIGIL EXEC;
 
 evalset : ENGAGE_SIGIL EVAL;
 
-argnum : ARGNUM_SIGIL ARGNUM    { invoke_printarg($<ival>2);        }
-       | ARGNUM_SIGIL WQUOTE    { invoke_printargs($<wval>2);       }
+argnum : ARGNUM_SIGIL ARGNUM    {  yyexpand ? 
+       					invoke_printarg($<ival>2)
+					: NULL;
+				}
+       | ARGNUM_SIGIL WQUOTE    { yyexpand ?
+       				        invoke_printargs($<wval>2)
+					: NULL;
+				}
        ;
 
 expr : expr '+' NUM		{ $$ = $<ival>1 + $<ival>3;      }
