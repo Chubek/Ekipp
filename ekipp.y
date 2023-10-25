@@ -30,6 +30,7 @@ extern   FILE*    yyin;
 extern   char	  keyletter;
 
 void 	yyinvoke(wchar_t* code);
+void	yyreflect(char* line);
 int	yyparse(void);
 bool  	yyexpand = false;
 
@@ -116,7 +117,7 @@ tok : righttok
 righttok : righttokset
 	      'q' SQUOTE       { set_token(&quote_right, $<sval>3);  }
 	 | righttokset
-	      'c' SQUOTE       { set_token(&comment_right, $<sval>3); }
+	      'k' SQUOTE       { set_token(&comment_right, $<sval>3); }
 	 | righttokset
 	      'd' SQUOTE       { set_token(&delim_right, $<sval>3);  }
 	 ;
@@ -148,8 +149,6 @@ sigil : sigilset
         's' SQUOTE	       { set_token(&search_sigil, $<sval>3);  }
       | sigilset
         'x' SQUOTE	       { set_token(&aux_sigil, $<sval>3);     }
-      | sigilset
-        'l' SQUOTE	       { set_token(&call_sigil, $<sval>3);    }
       ;
 
 sigilset : ENGAGE_SIGIL
@@ -340,4 +339,12 @@ void yyinvoke(wchar_t*	code) {
 	fclose(yyin);
 	yyin 		= yyinhold;
 	yyexpand 	= false;
+}
+
+void yyreflect(char* line) {
+	yyin 		= fmemopen(line, strlen(line), "r");
+	output		= stdout;
+	yyparse();
+	fclose(yyin);
+	fflush(stdout);
 }
