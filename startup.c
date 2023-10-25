@@ -72,8 +72,10 @@ char	output_path[FILENAME_MAX] = {0};
 
 
 Local void hook_io(void) {
-	if (input_path[0] == 0 && isatty(STDIN_FILENO))
+	if (input_path[0] == 0 && isatty(STDIN_FILENO)) {
 		repl();
+		exit(EXIT_SUCCESS);
+	}
 	else if (input_path[0] == 0 && !isatty(STDIN_FILENO))
 		yyin = stdin;
 	else
@@ -90,7 +92,7 @@ Local void hook_io(void) {
 Local void parse_options(void) {
 	int	c;
 	enum {
-		LEFT = 0, RIGHT
+		LEFT = 0, RIGHT = 1,
 	};
 
 	char* const token[] = {
@@ -184,4 +186,18 @@ Local void parse_options(void) {
 		}
 
 	}
+}
+
+int main(int argc, char** argv) {
+	sys_argc = argc;
+	sys_argv = argv;
+
+	parse_options();
+	hook_io();
+	on_startup();
+
+	if (yyparse())
+		exit(EXIT_FAILURE);
+
+	return EXIT_SUCCESS;
 }
