@@ -388,7 +388,7 @@ Local	char	aux_sigil[MAX_TOKEN];
 #define MAX_FMT		MAX_TOKEN * 8
 
 Local    char fmt_delim[MAX_FMT]; 
-Local    char fmt_commen[MAX_FMT];
+Local    char fmt_comment[MAX_FMT];
 Local    char fmt_quote[MAX_FMT];
 
 Local	bool	tokens_registry[REGISTRY_SIZE];
@@ -415,11 +415,12 @@ Inline void set_token(char* token, char* value) {
 	register_token(value);
 	memset(&token[0], 0, MAX_TOKEN);
 	memmove(&token[0], &value[0], MAX_TOKEN);
+	reformats_fmts();
 }
 
 Inline void reformat_fmts(void) {
 	sprintf(&fmt_delim[0],   "%s%%s%s", &delim_left[0],   &delim_right[0]);
-	sprintf(&fmt_comment[0], "%s%%s%s", &comment_left[0], &comment_right[0]);
+	sprintf(&fmt_comment[0], "%s%%*s%s", &comment_left[0], &comment_right[0]);
 	sprintf(&fmt_quote[0],   "%s%%s%s", &quote_left[0],   &quote_right[0]);
 }
 
