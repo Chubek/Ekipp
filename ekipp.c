@@ -35,6 +35,8 @@ Inline void insert_symbol(wchar_t* name, wchar_t* value) {
 	node->next	= Symtable;
 	node->name	= wcsdup(name);
 	node->value     = wcsdup(value);
+	free(name);
+	free(value);
 	Symtable	= node;
 }
 
@@ -60,8 +62,10 @@ Inline void remove_symbol(wchar_t* name) {
 	size_t 		len  = wcslen(name);
 
 	for (node = Symtable; node != NULL; node = node->next) {
-		if (!wcsncmp(node->name, name, len))
+		if (!wcsncmp(node->name, name, len)) {
+			free(name);
 			free_node(node);
+		}
 	}
 
 }
@@ -84,6 +88,8 @@ Local size_t	stack_pointer = 0;
 Inline void push_stack(wchar_t* name, wchar_t* value) {
 	Defstack[stack_pointer].name   = wcsdup(name);
 	Defstack[stack_pointer].value  = wcsdup(value);
+	free(name);
+	free(value);
 	stack_pointer++;
 }
 
@@ -223,6 +229,10 @@ Inline void ifelse_regmatch(void) {
 		? OUTPUT(reg_nomatchmsg)
 		: OUTPUT(reg_matchmsg);
 
+	free(reg_input);
+	free(reg_pattern);
+	free(reg_matchmsg);
+	free(reg_nomatchmsg);
 	regfree(&reg_cc);
 }
 
@@ -254,6 +264,7 @@ Inline void search_file(FILE* stream) {
 		free(line_str);
 	}
 
+	free(reg_pattern);
 	regfree(&reg_cc);
 
 }
@@ -262,6 +273,7 @@ Inline void open_search_close(char* path) {
 	FILE* stream = fopen(path, "r");
 	search_file(stream);
 	fclose(stream);
+	free(path);
 }
 
 extern FILE* yyin;
@@ -301,6 +313,10 @@ Inline void ifelse_execmatch(void) {
 		: OUTPUT(exec_strne);
 	free(readtxt);
 	pclose(pipe);
+	free(exec_cmd);
+	free(exec_strcmp);
+	free(exec_strne);
+	free(exec_streq);
 }
 
 Inline void exec_command(void) {
@@ -328,6 +344,7 @@ Inline void exec_command(void) {
 	OUTPUT(text);
 	free(text);
 	pclose(stream);
+	free(exec_cmd);
 }
 
 Local FILE*		delim_stream;
@@ -377,6 +394,7 @@ Inline void exec_delim_command(void) {
 	free(readtxt);
 	pclose(pipe);
 	fclose(delim_stream);
+	free(delim_command);
 }
 #define MAX_TOKEN	8
 #define REGISTRY_SIZE	65536
@@ -424,6 +442,8 @@ Inline void set_token(char* token, char* value) {
 	memset(&token[0], 0, MAX_TOKEN);
 	memmove(&token[0], &value[0], MAX_TOKEN);
 	reformats_fmts();
+	free(token);
+	free(value);
 }
 
 Inline void reformat_fmts(void) {
@@ -432,6 +452,7 @@ Inline void reformat_fmts(void) {
 	
 	sprintf(&fmt_comment[0], 
 			"%s%%*s%s", &comment_left[0], &comment_right[0]);
+
 	sprintf(&fmt_quote[0], 
 			"%s%%s%s", &quote_left[0], &quote_right[0]);
 }
@@ -454,6 +475,7 @@ Local	  size_t	invoke_argn = 0;
 
 Inline void invoke_addarg(wchar_t* arg) {
 	invoke_argv[invoke_argc++] = wcsdup(arg);
+	free(arg);
 }
 
 Inline wchar_t* invoke_getarg(size_t n) {
@@ -478,6 +500,7 @@ Inline void invoke_printargs(wchar_t* delim) {
 	}
 
 	OUTPUT(invoke_argv[n]);
+	free(delim);
 }
 
 Inline void invoke_dumpargs(void) {
@@ -495,6 +518,7 @@ Inline void invoke_macro(wchar_t *id) {
 		EEXIT(ERR_UNKNOWN_MACRO, ECODE_UNKNOWN_MACRO);
 	}
 	yyinvoke(macro);
+	free(id);
 }
 
 Local wchar_t*	fmt;
@@ -519,6 +543,7 @@ Inline void print_env(char* key) {
 	char* var;
 	if ((var = getenv(key)) != NULL)
 		fputs(var, output);
+	free(key);
 }
 
 extern char** sys_argv;
