@@ -9,7 +9,7 @@
 #endif
 
 typedef struct LinkedList 	node_t;
-typedef struct Defstack	  	stack_t;
+typedef struct Defstack	  	dstack_t;
 
 Inline void insert_symbol(wchar_t* name, wchar_t* value); 
 Inline wchar_t* get_symbol(wchar_t* name); 
