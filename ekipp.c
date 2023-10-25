@@ -417,10 +417,11 @@ Inline bool token_is(char* token, char* inquiry) {
 
 External  void 		yyinvoke(wchar_t* code);
 External  void		yyforeach(wchar_t* code, wchar_t* arg);
+External  char		keyletter;
 
 Local	  wchar_t* 	invoke_argv[MAX_ARG];
 Local	  size_t	invoke_argc = 0;
-Local	  wchar_t*	keyword;
+Local	  size_t	invoke_argn = 0;
 
 Inline void invoke_addarg(wchar_t* arg) {
 	invoke_argv[invoke_argc++] = wcsdup(arg);
@@ -428,6 +429,10 @@ Inline void invoke_addarg(wchar_t* arg) {
 
 Inline void invoke_getarg(size_t n) {
 	return invoke_argv[n];
+}
+
+Inline void invoke_printnext(void) {
+	OUTPUT(invoke_argv[invoke_argn++]);
 }
 
 Inline void invoke_printarg(size_t n) {
@@ -450,6 +455,7 @@ Inline void invoke_dumpargs(void) {
 	while (--invoke_argc)
 		free(invoke_argv[invoke_argc]);
 	memset(&invoke_argv[0], 0, MAX_ARG * sizeof(wchar_t*));
+	invoke_argn = 0;
 }
 
 Inline void invoke_macro(wchar_t *id) {
@@ -462,15 +468,15 @@ Inline void invoke_macro(wchar_t *id) {
 	yyinvoke(macro);
 }
 
-Inline void foreach_macro(wchar_t* macro, char* kwd) {
-	keyword = wcsdup(kwd);
+Inline void foreach_macro(wchar_t* macro) {
 	while (--invoke_argc) {
 		yyforeach(macro, invoke_argv[invoke_argc]);
 	}
-	free(keyword);
 }
 
-Inline void print_formatted(wchar_t* fmt) {
+Local wchar_t*	fmt;
+
+Inline void print_formatted(void) {
 	wchar_t wc;
 	wchar_t f[3] = {0};
 	int i = 0;
