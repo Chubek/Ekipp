@@ -1,5 +1,4 @@
 %{
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -59,6 +58,7 @@ mainop : call
        | delimx
        | ifmatch
        | Ifexec
+       | reflect
        ;
 
 body : argnum
@@ -76,6 +76,7 @@ call : '$' IDENT args	       {
 					fputc('$', output);
 					OUTPUT($<wval>3);
 					invoke_printargs(L" ");
+					invoke_dumpargs();
 			       }
      ;
 
@@ -183,6 +184,13 @@ define : defset '|'
 undefset : ENGAGE_SIGIL UNDEF;
 
 defset : ENGAGE_SIGIL DEFINE;
+
+reflect : reflectset '|'
+		SQUOTE 	        {  yyreflect($<sval>3);		}
+
+reflectset : ENGAGE_SIGIL
+	   	REFLECT
+	   ;
 
 searchfile : searchset '|'
 	       SQUOTE		{ open_search_close($<sval>2);  }
@@ -328,7 +336,6 @@ expr : expr '+' NUM		{ $$ = $<ival>1 + $<ival>3;      }
      | NUM			{ $$ = $<ival>1;	         }
      ;
 %%
-
 #include "yy.lex.h"
 
 void yyinvoke(wchar_t*	code) {
