@@ -16,20 +16,43 @@ FILE* 	yyin;
 
 %%
 
-searchfile: searchset ','
+pop : popset '|'
+          IDENT			{ $$ = pop_stack($<wval>3);     }
+
+push : pushset '|'
+         IDENT '=' body		{ push_stack($<wval>3, $5);     }
+     ;
+
+popset : ENGAGE_SIGIL POP;
+
+pushset : ENGAGE_SIGIL PUSH;
+
+undef : undefset '|'
+               IDENT	 	{ remove_symbol($<wval>3);      }
+      ;
+
+define : defset '|'
+	      IDENT '=' body    { insert_symbol($<wval>3, $5);  }
+       ;
+
+undefset : ENGAGE_SIGIL UNDEF;
+
+defset : ENGAGE_SIGIL DEFINE;
+
+searchfile : searchset '|'
 	       SQUOTED		{ open_search_close($<sval>2);  }
-	  | searchset ','
+	   | searchset '|'
 	       CURRENT          { yyin_search();		}
-	  ;
+	   ;
 
 searchset : SEARCH_SIGIL
 	      SQUOTED		{ reg_pattern = $<sval>2;	}
 	  ;
 
 ifexec : COND_SIGIL
-            SQUOTED
-	    WQUOTED
-	    WQUOTED
+            SQUOTED ','
+	    WQUOTED ','
+	    WQUOTED ','
 	    WQUOTED
 	    '|' EXECIF 		{
 	    				exec_cmd     = $<sval>2;
@@ -79,30 +102,38 @@ auxset : AUXIL_SIGIL
        ;
          			
 
-undivert : ENGAGE_SIGIL
-	     UNDIVERT DIVNUM    {      
+undivert : undivset '|'
+	           DIVNUM       {      
 	                                unset_divert($<ival>3);
 					unswitch_output();
 				}
 	 ;
 
-divert : ENAGE_SIGIL
-           DIVERT DIVNUM        {
+divert : divset '|' 
+                  DIVNUM        {
 	   				set_divert($<ival>3);
 					switch_output(current_divert);
 				}
        ;
 
-exec : ENGAGE_SIGIL 
-          EXEC SQUOTED	{ 
+
+undivset : ENGAGE_SIGIL UNDIVERT;
+divset : ENGAGE_SIGIL DIVERT;
+
+exec : execset '|'
+           SQUOTED	        { 
 	  				exec_cmd = $<wval>3;
 					exec_command();
 				}
      ;
 
-eval : ENGAGE_SIGIL
-          EVAL expr		{ fprintf(output, "%ld", $<ival>3); }
+eval : evalset '|'
+             expr		{ fprintf(output, "%ld", $<ival>3); }
      ;
+
+execset : ENGAGE_SIGIL EXEC;
+
+evalset : ENGAGE_SIGIL EVAL;
 
 argnum : ARGNUM_SIGIL ARGNUM    { invoke_printarg($<ival>2);        }
        | ARGNUM_SIGIL WQUOTED   { invoke_printargs($<wval>2);       }
