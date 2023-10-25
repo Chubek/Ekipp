@@ -22,7 +22,7 @@ char            keycompare;
 
 fscanf(yyin, &fmt_comment[0], NULL);
 
-if ((keycompare = fgetc(yyin)) == keyletter)
+if ((keycompare = fgetc(yyin)) == keyletter && !isblank(keycompare))
         return KEYLETTER;
 
 ungetc(keycompare, yyin);
@@ -52,6 +52,9 @@ char    token[MAX_TOKEN] = {0};
 size_t  token_ptr = 0;
 
 while ((token[token_ptr++] = fgetc(yyin)), token_ptr < MAX_TOKEN - 1) {
+        if (isblank(token[token_ptr - 1]))
+                break;
+
         if (token_is(&token[0], &argnum_sigil[0], token_ptr)
                 return ARGNUM_SIGIL;
         else if (token_is(&token[0], &engage_sigil[0], token_ptr)
