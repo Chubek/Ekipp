@@ -8,6 +8,11 @@
 #include <regex.h>
 #include <dirent.h>
 #include <time.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/sysmacros.h>
 
 #define Local                   static
 #define Inline                  static inline
@@ -104,18 +109,15 @@ Inline void dump_stack(void) {
 }
 
 
-#define NUM_DIVERT 	9
-
-#ifdef __unix__
-#define NULL_DEVICE 	"/dev/null"
-#else
-#define NULL_DEVICE	"nul"
-#endif
+#define NUM_DIVERT 	32
 
 Local   FILE*		divert_streams[NUM_DIVERT];
 Local 	wchar_t*	divert_strings[NUM_DIVERT];
 Local 	size_t		divert_lengths[NUM_DIVERT];
 Local	FILE*		current_divert;
+Local   DIR*		tmp_dir;
+Local	dev_t		null_dev;
+Local	int		null_fd;
 Local	FILE*		null_divert;
 Local	int		current_divert_idx;
 Local	FILE*		output;
@@ -124,13 +126,38 @@ Local	FILE*		hold;
 #define OUTPUT(ws) 		(fputws(ws, output))
 #define OUTPUT_DIVERT(ws) 	(fputws(ws, current_divert))
 
+#define MAJOR_NULL 1
+#define MINOR_NULL 3
+
+#define NULL_NAME "ekippnull"
+
+Inline void open_null_file(void) {
+	tmp_dir = opendir(P_tmpdir);
+	null_dev = makedev(MAJOR_NULL, MINOR_NULL);
+	if ((null_fd = mknodat(dirfd(tmp_dir), 
+					NULL_NAME, 
+					S_IWUSR | S_IFCHR, 
+					null_dev) < 0)) {
+		ERR_OUT(ERR_OPEN_NULL, ECODE_OPEN_NULL);
+	}
+	null_divert = fdopen(null_fd, "w");
+}
+
+Inline void destroy_null_divert(void) {
+	if (null_divert) {
+		fclose(null_divert);
+		close(null_fd);
+		closedir(tmp_dir);
+	}
+}
+
 Inline void set_divert(int n) {
 	if (n > NUM_DIVERT) {
 		ERR_OUT(ERR_NUM_DIVERT, ECODE_NUM_DIVERT);
 	}
 	else if (n < 0) {
 		if (!null_divert) 
-			null_divert = fopen(NULL_DEVICE, "w");
+			open_null_file();
 		current_divert 	   = null_divert;
 		current_divert_idx = -1;
 	} else {
@@ -165,6 +192,7 @@ Inline void free_set_diverts(void) {
 			fclose(divert_streams[i]);
 		}
 	}
+	destroy_null_divert();
 }
 
 Inline void switch_output(FILE* stream) {
