@@ -385,6 +385,12 @@ Local	char	cond_sigil[MAX_TOKEN];
 Local	char	search_sigil[MAX_TOKEN];
 Local	char	aux_sigil[MAX_TOKEN];
 
+#define MAX_FMT		MAX_TOKEN * 8
+
+Local    char fmt_delim[MAX_FMT]; 
+Local    char fmt_commen[MAX_FMT];
+Local    char fmt_quote[MAX_FMT];
+
 Local	bool	tokens_registry[REGISTRY_SIZE];
 
 Inline void zero_registry(void) {
@@ -411,9 +417,16 @@ Inline void set_token(char* token, char* value) {
 	memmove(&token[0], &value[0], MAX_TOKEN);
 }
 
-Inline bool token_is(char* token, char* inquiry) {
-	return !strcmp(&inquiry[0], token);
+Inline void reformat_fmts(void) {
+	sprintf(&fmt_delim[0],   "%s%%s%s", &delim_left[0],   &delim_right[0]);
+	sprintf(&fmt_comment[0], "%s%%s%s", &comment_left[0], &comment_right[0]);
+	sprintf(&fmt_quote[0],   "%s%%s%s", &quote_left[0],   &quote_right[0]);
 }
+
+Inline void token_is(char* token, char* cmp, size_t len) {
+	return !strncmp(token, cmp, len);
+}
+
 
 External  void 		yyinvoke(wchar_t* code);
 External  void		yyforeach(wchar_t* code, wchar_t* arg);
