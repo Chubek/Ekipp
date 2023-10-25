@@ -430,6 +430,12 @@ Inline void invoke_getarg(size_t n) {
 	return invoke_argv[n];
 }
 
+Inline void invoke_printarg(size_t n) {
+	if (n < invoke_argc) {
+		OUTPUT(invoke_argv[n]);
+	}
+}
+
 Inline void invoke_printargs(wchar_t* delim) {
 	size_t n = 0;
 	while (n < invoke_argc - 1) {
@@ -477,6 +483,22 @@ Inline void print_formatted(wchar_t* fmt) {
 		}
 	}
 
+}
+
+
+Inline void print_env(char* key) {
+	char* var;
+	if ((var = getenv(key)) != NULL)
+		fputs(var, output);
+}
+
+extern char** sys_argv;
+extern int    sys_argc;
+
+Inline void print_argv(int n) {
+	if (sys_argc < n) {
+		fputs(sys_argv[n], output);
+	}
 }
 
 Local wchar_t*	aux_prim;
