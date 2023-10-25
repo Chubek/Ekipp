@@ -4,6 +4,7 @@
 #include <wchar.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 int 		yylex(void);
 void		yyerr(char* error);
@@ -72,6 +73,6 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 "++"		return INCR;
 "--"		return DECR;
 
-
+[\r\n]+		return NEWLINE;
 
 
