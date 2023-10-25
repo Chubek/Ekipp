@@ -10,6 +10,8 @@ int 		yylex(void);
 void		yyerr(char* error);
 FILE*		yyin;
 
+extern FILE*	output;
+
 #include "yy.tab.h"
 
 %}
@@ -32,7 +34,9 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 {Binary}	{ yylval.ival = 
                      strtoll(&yytext[2], NULL, 2); return NUM; 	 }
 
-{Ident}		{ yylval.wval = yytext;  return IDENT;		 }
+{Ident}		{ yylval.wval = 
+			wscndup(yytext, yyleng);  
+					return IDENT;		 }
 
 [0-9]		{ yylval.ival = atoi(&yytext[0]); return DIVNUM; }
 
@@ -58,6 +62,8 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 "pop"		return POP;
 "push"		return PUSH;
 
+"reflect"	return REFLECT;
+
 "current"	return CURRENT;
 "sigils"	return SIGILS;
 "left-tokens"	return LEFT_TOKENS;
@@ -77,4 +83,7 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 
 [\r\n]+		return NEWLINE;
 
+[\\]		return ESCAPE;
 
+.		{ fwrite(&yytext[0], yyleng, sizeof(char), output); }
+%%
