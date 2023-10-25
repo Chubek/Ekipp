@@ -7,7 +7,22 @@
 
 #include "ekipp.h"
 
-extern  FILE* output;
+#define MAX_TOKEN 8
+
+extern   char    quote_left[MAX_TOKEN];
+extern   char    quote_right[MAX_TOKEN];
+extern   char    comment_left[MAX_TOKEN];
+extern   char    comment_right[MAX_TOKEN];
+extern   char    delim_left[MAX_TOKEN];
+extern   char    delim_right[MAX_TOKEN];
+extern   char    argnum_sigil[MAX_TOKEN];
+extern   char    engage_sigil[MAX_TOKEN];
+extern   char    cond_sigil[MAX_TOKEN];  
+extern   char    search_sigil[MAX_TOKEN];
+extern   char    aux_sigil[MAX_TOKEN];
+
+extern   FILE*   output;
+
 int 	yylex(void);
 FILE* 	yyin;
 %}
@@ -16,8 +31,53 @@ FILE* 	yyin;
 
 %%
 
+righttok : righttokset
+	      'q' SQUOTE       { set_token(&quote_right, $<sval>3);  }
+	 | righttokset
+	      'c' SQUOTE       { set_token(&comment_right, $<sval>3); }
+	 | righttokset
+	      'd' SQUOTE       { set_token(&delim_right, $<sval>3);  }
+	 ;
+
+righttokset : ENGAGE_SIGIL
+	       RIGHT_TOKEN
+            ;
+
+
+lefttok : lefttokset
+	      'q' SQUOTE       { set_token(&quote_left, $<sval>3);  }
+	| lefttokset
+	      'c' SQUOTE       { set_token(&comment_left, $<sval>3); }
+	| lefttokset
+	      'd' SQUOTE       { set_token(&delim_left, $<sval>3);  }
+	;
+
+lefttokset : ENGAGE_SIGIL
+	     LEFT_TOKEN
+	   ;
+
+sigil : sigilset 
+        'e' SQUOTE	       { set_token(&engage_sigil, $<sval>3); }
+      | sigilset
+        'a' SQUOTE	       { set_token(&argnum_sigil, $<svaal>3); }
+      | sigilset
+        'c' SQUOTE	       { set_token(&cond_sigil, $<sval>3);   }
+      | sigilset
+        's' SQUOTE	       { set_token(&search_sigil, $<sval>3); }
+      | sigilset
+        'x' SQUOTE	       { set_token(&aux_sigil, $<sval>3);   }
+      ;
+
+sigilset : ENGAGE_SIGIL
+	    SIGIL
+	;
+
+dnl : DNL_TOKEN			{ dnl();			}
+    ;
+
 pop : popset '|'
           IDENT			{ $$ = pop_stack($<wval>3);     }
+    ;
 
 push : pushset '|'
          IDENT '=' body		{ push_stack($<wval>3, $5);     }
@@ -119,6 +179,13 @@ divert : divset '|'
 
 undivset : ENGAGE_SIGIL UNDIVERT;
 divset : ENGAGE_SIGIL DIVERT;
+
+delimx : execset '|'
+            DELIMITED		{ 
+					delim_command = $<sval>3;
+					exec_delim_command();
+				}
+       ;
 
 exec : execset '|'
            SQUOTED	        { 
