@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <signal.h>
 #include <limits.h>
+#include <sys/sysmacros.h>
 #include <readline/readline.h>
 #include <readline/history.h>
 
@@ -66,19 +67,19 @@ Local void repl(void) {
 
 char**	sys_argv;
 int	sys_argc;
-char	input_path[MAX_FILEPATH]  = {0};
-char	output_path[MAX_FILEPATH] = {0};
+char	input_path[FILENAME_MAX]  = {0};
+char	output_path[FILENAME_MAX] = {0};
 
 
 Local void hook_io(void) {
-	if (&input_path[0] == "" && isatty(STDIN_FILENO))
+	if (input_path[0] == 0 && isatty(STDIN_FILENO))
 		repl();
-	else if (&input_path[0] == "" && !isatty(STDIN_FILENO))
+	else if (input_path[0] == 0 && !isatty(STDIN_FILENO))
 		yyin = stdin;
 	else
 		yyin = fopen(&input_path[0], "r");
 
-	if (&output_path[0] == "")
+	if (output_path[0] == 0)
 		output = stdout;
 	else
 		output = fopen(&output_path[0], "w");
@@ -90,13 +91,13 @@ Local void parse_options(void) {
 	int	c;
 	enum {
 		LEFT = 0, RIGHT
-	}
+	};
 
 	char* const token[] = {
 		[LEFT] 	= "l:",
 		[RIGHT]	= "r:",
 		NULL,
-	}
+	};
 
 	while (true) {
 		static char* short_options = 
@@ -131,19 +132,19 @@ Local void parse_options(void) {
 
 		switch (c) {
 			case 'e':
-				set_token(&engage_sigil, optarg);
+				set_token(&engage_sigil[0], optarg);
 				continue;
 			case 'a':
-				set_token(&argnum_sigil, optarg);
+				set_token(&argnum_sigil[0], optarg);
 				continue;
 			case 'c':
-				set_token(&cond_sigil, optarg);
+				set_token(&cond_sigil[0], optarg);
 				continue;
 			case 's':
-				set_token(&search_sigil, optarg);
+				set_token(&search_sigil[0], optarg);
 				continue;
 			case 'x':
-				set_token(&aux_sigil, optarg);
+				set_token(&aux_sigil[0], optarg);
 				continue;
 			case 'q':
 			case 'k':
@@ -153,23 +154,28 @@ Local void parse_options(void) {
 							token, &val)){
 					case LEFT:
 						tok = c == 'q'
-                                                   ? &quote_left
+                                                   ? &quote_left[0]
 						   : (c == 'k' 
-							? &comment_left
-							: delim_left);
+							? &comment_left[0]
+							: &delim_left[0]);
+						set_token(&tok[0], val);
 					case RIGHT:
 						tok = c == 'q'
-                                                   ? &quote_right
+                                                   ? &quote_right[0]
 						   : (c == 'k' 
-							? &comment_right
-							: delim_right);
-					set_token(tok, val);
+							? &comment_right[0]
+							: &delim_right[0]);
+						set_token(&tok[0], val);
 				continue;
 			case 'f':
-				strcpy(&input_path[0], optarg);
+				strncpy(&input_path[0], 
+						optarg,
+						strlen(optarg));
 				continue;
 			case 'o':
-				strcpy(&output_path[0], optarg);
+				strncpy(&output_path[0], 
+						optarg,
+						strlen(optarg));
 				continue;
 			default:
 				continue;
