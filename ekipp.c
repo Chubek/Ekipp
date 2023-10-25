@@ -80,7 +80,7 @@ Inline void push_stack(wchar_t* name, wchar_t* value) {
 	stack_pointer++;
 }
 
-Inline wchar_t*	get_stack_value(wchar_t* name) {
+Inline wchar_t*	pop_stack(wchar_t* name) {
 	size_t len = wcslen(name);
 	size_t ptr = stack_pointer;
 
