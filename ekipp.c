@@ -377,13 +377,13 @@ Local	char	quote_left[MAX_TOKEN];
 Local	char	quote_right[MAX_TOKEN];
 Local	char	comment_left[MAX_TOKEN];
 Local	char	comment_right[MAX_TOKEN];
-Local	char	divert_mark[MAX_TOKEN];
-Local	char	undivert_mark[MAX_TOKEN];
 Local 	char	delim_left[MAX_TOKEN];
 Local	char	delim_right[MAX_TOKEN];
 Local	char	argnum_sigil[MAX_TOKEN];
 Local	char	engage_sigil[MAX_TOKEN];
-Local	char	sep_token[MAX_TOKEN];
+Local	char	cond_sigil[MAX_TOKEN];
+Local	char	search_sigil[MAX_TOKEN];
+Local	char	aux_sigil[MAX_TOKEN];
 
 Local	bool	tokens_registry[REGISTRY_SIZE];
 
@@ -542,9 +542,8 @@ Inline void list_dir(void) {
 
 	while ((entry = readdir(stream)) != NULL) {
 		fprintf(output, 
-				"%d %s %s\n", 
-				++i, 
-				&sep_token,
+				"%d -- %s\n", 
+				++i,
 				&entry->d_name[0]
 			);
 		free(entry);
