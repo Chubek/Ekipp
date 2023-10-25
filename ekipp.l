@@ -63,6 +63,8 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 "left-tokens"	return LEFT_TOKENS;
 "right-tokens"	return RIGHT_TOKENS;
 
+"exit"		return EXIT;
+
 ">="		return GE;
 "<="		return LE;
 "=="		return EQ;
