@@ -129,7 +129,7 @@ righttokset : ENGAGE_SIGIL
 lefttok : lefttokset
 	      'q' SQUOTE       { set_token(&quote_left, $<sval>3);  }
 	| lefttokset
-	      'c' SQUOTE       { set_token(&comment_left, $<sval>3); }
+	      'k' SQUOTE       { set_token(&comment_left, $<sval>3); }
 	| lefttokset
 	      'd' SQUOTE       { set_token(&delim_left, $<sval>3);  }
 	;
@@ -222,6 +222,12 @@ ifmatch : COND_SIGIL
 				 	reg_nomatchmsg  = $<wval>5;
 					ifelse_regmatch();
 	    			}
+	;
+
+exit : exitset EXIT ';'		{ exit($<ival>1);		    }
+
+exitset : ENGAGE_SIGIL '|' 
+		NUM		{ $$ = $<ival>3;		    }
 	;
 
 auxil : auxset
