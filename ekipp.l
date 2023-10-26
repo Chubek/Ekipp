@@ -11,7 +11,7 @@ FILE*		yyin;
 
 extern FILE*	output;
 
-#include "yy.tab.h"
+#include "y.tab.h"
 %}
 
 Decimal		[+-][1-9][0-9]*
@@ -89,6 +89,9 @@ sysargs		return SYSARGS;
 
 {Ident}		{ yylval.wval = wscndup(yytext, yyleng);  
 				return IDENT; }
+
+[^,]{1,255}	{ yylval.wval = wcsndup(&yytext[0], yyleng);
+				return ARGUMENT;	  }
 
 .+		ECHO;
 
