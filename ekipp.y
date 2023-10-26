@@ -336,7 +336,6 @@ expr : expr '+' NUM		{ $$ = $<ival>1 + $<ival>3;      }
      | NUM			{ $$ = $<ival>1;	         }
      ;
 %%
-#include "yy.lex.h"
 
 void yyinvoke(wchar_t*	code) {
 	FILE* yyinhold 	= yyin;
