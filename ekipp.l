@@ -1,5 +1,4 @@
 %{
-
 #include <stdio.h>
 #include <wchar.h>
 #include <stdlib.h>
@@ -13,77 +12,75 @@ FILE*		yyin;
 extern FILE*	output;
 
 #include "yy.tab.h"
-
 %}
 
-Decimal		[+-][1-9][0-9]*;
+Decimal		[+-][1-9][0-9]*
 Hexal		[0xX][a-fA-F0-9]+
 Octal		[0oO][0-7]+
 Binary		[0bB][0-1]+
 Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
-
 %%
 	#include "yylex.i"
 
-{Decimal}	{ yylval.ival = 
-                     strtoll(yytext, NULL, 10); return NUM;      }
-{Hexal}		{ yylval.ival = 
-                     strtoll(&yytext[2], NULL, 16); return NUM;  }
-{Octala}	{ yylval.ival = 
-                     strtoll(&yytext[2], NULL, 8); return NUM;   }
-{Binary}	{ yylval.ival = 
-                     strtoll(&yytext[2], NULL, 2); return NUM; 	 }
+{Decimal}	{ yylval.ival = strtoll(yytext, NULL, 10); 
+				return NUM;  }
+{Hexal}		{ yylval.ival = strtoll(&yytext[2], NULL, 16); 
+				return NUM;  }
+{Octal}		{ yylval.ival = strtoll(&yytext[2], NULL, 8); 
+				return NUM;   }
+{Binary}	{ yylval.ival = strtoll(&yytext[2], NULL, 2); 
+				return NUM;   }
+[0-9]		{ yylval.ival = atoi(&yytext[0]); 
+				return DIVNUM; }
+[0-9]+		{ yylval.ival = atoi(&yytext[0]); 
+				return ARGNUM; }
 
-{Ident}		{ yylval.wval = 
-			wscndup(yytext, yyleng);  
-					return IDENT;		 }
+engage		return ENGAGE;
+dnl		return DNL;
+exec-if		return EXECIF;
+match-if	return MATCHIF;
 
-[0-9]		{ yylval.ival = atoi(&yytext[0]); return DIVNUM; }
+lsdir		return LSDIR;
+translit	return TRANSLIT;
+catfile		return CATFILE;
+suboffset	return SUBOFFS;
+datetime	return DATETIME;
 
-[0-9]+		{ yylval.ival = atoi(&yytext[0]); return ARGNUM; }
+divert		return DIVERT;
+undivert	return UNDIVERT;
 
-"engage"	return ENGAGE;
-"dnl"		return DNL;
-"exec-if"	return EXECIF;
-"match-if"	return MATCHIF;
+exec		return EXEC;
+eval		return EVAL;
 
-"lsdir"		return LSDIR;
-"translit"	return TRANSLIT;
-"catfile"	return CATFILE;
-"suboffset"	return SUBOFFS;
-"datetime"	return DATETIME;
+pop		return POP;
+push		return PUSH;
 
-"divert"	return DIVERT;
-"undivert"	return UNDIVERT;
+reflect		return REFLECT;
 
-"exec"		return EXEC;
-"eval"		return EVAL;
+current		return CURRENT;
+sigils		return SIGILS;
+left-tokens	return LEFT_TOKENS;
+right-tokens	return RIGHT_TOKENS;
 
-"pop"		return POP;
-"push"		return PUSH;
+exit		return EXIT;
 
-"reflect"	return REFLECT;
-
-"current"	return CURRENT;
-"sigils"	return SIGILS;
-"left-tokens"	return LEFT_TOKENS;
-"right-tokens"	return RIGHT_TOKENS;
-
-"exit"		return EXIT;
-
-">="		return GE;
-"<="		return LE;
-"=="		return EQ;
-"!="		return NE;
-">>"		return SHR;
-"<<"		return SHL;
-"**"		return POW;
-"++"		return INCR;
-"--"		return DECR;
+>=		return GE;
+\<=		return LE;
+==		return EQ;
+!=		return NE;
+>>		return SHR;
+\<<		return SHL;
+\*\*		return POW;
+\+\+		return INCR;
+--		return DECR;
 
 [\r\n]+		return NEWLINE;
 
 [\\]		return ESCAPE;
 
-.		{ fwrite(&yytext[0], yyleng, sizeof(char), output); }
+{Ident}		{ yylval.wval = wscndup(yytext, yyleng);  
+				return IDENT; }
+
+.+		ECHO;
+
 %%
