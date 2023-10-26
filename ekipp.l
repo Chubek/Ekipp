@@ -55,14 +55,21 @@ eval		return EVAL;
 pop		return POP;
 push		return PUSH;
 
-reflect		return REFLECT;
+define		return DEFINE;
+undef		return UNDEF;
 
+reflect		return REFLECT;
 current		return CURRENT;
 sigils		return SIGILS;
 left-tokens	return LEFT_TOKENS;
 right-tokens	return RIGHT_TOKENS;
 
 exit		return EXIT;
+error		return ERROR;
+print		return PRINT;
+environ		return ENVIRON;
+formatted	return FORMATTED;
+sysargs		return SYSARGS;
 
 >=		return GE;
 \<=		return LE;
@@ -77,6 +84,8 @@ exit		return EXIT;
 [\r\n]+		return NEWLINE;
 
 [\\]		return ESCAPE;
+
+['] [^'] [']	{ yylval.cval = yytext[1]; return ASCII; }
 
 {Ident}		{ yylval.wval = wscndup(yytext, yyleng);  
 				return IDENT; }
