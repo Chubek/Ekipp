@@ -37,7 +37,19 @@ bool  	yyexpand = false;
 #define OUTPUT(ws) 	fputws(ws, output)
 %}
 
-%token
+%token ENGAGE_SIGIL SEARCH_SIGIL AUX_SIGIL ARGNUM_SIGIL COND_SIGIL
+%token TRANSLIT LSDIR CATFILE DATETIME SUBOFFS
+%token EXEC EVAL EXECIF MATCHIF REFLECT
+%token DIVERT UNDIVERT
+%token PUSH POP
+%token DEFINE UNDEF
+%token SIGILS LEFT_TOKENS RIGHT_TOKENS
+%token EXIT ERROR PRINT ENVIRON FORMATTED SYSARGS
+%token GE LE EQ NE SHR SHL POW INCR DECR
+%token NEWLINE ESCAPE
+%token DIVNUM ARGNUM NUM
+%token SQUOTE WQUOTE DELIMITED ASCII
+
 
 %start mainop
 
@@ -93,9 +105,11 @@ foreachset : ENGAGE_SIGIL
 	   ;
 
 print : printset
-          '|' ARGV ARGNUM      { print_argv($<ival>4);		 }
+          '|' SYSARGS ARGNUM   { print_argv($<ival>4);		 }
       | printset
           '|' ENVIRON SQUOTE   { print_env($<sval>4);		 }
+      | printset
+          '|' ERROR SQUOTE     { fputs($<sval>4, stderr);	 }
       | printset
           '|' FORMATTED fmt    { print_formatted();		 }
       ;
@@ -226,7 +240,7 @@ ifmatch : COND_SIGIL
 	    				reg_input       = $<sval>2;
 					reg_pattern     = $<sval>3;
 					reg_matchmsg    = $<wval>4;
-				 	reg_nomatchmsg  = $<wval>5;
+			 	 	reg_nomatchmsg  = $<wval>5;
 					ifelse_regmatch();
 	    			}
 	;
