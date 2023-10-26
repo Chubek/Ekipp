@@ -1,3 +1,4 @@
+
 %{
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,19 +38,34 @@ bool  	yyexpand = false;
 #define OUTPUT(ws) 	fputws(ws, output)
 %}
 
-%token ENGAGE_SIGIL SEARCH_SIGIL AUX_SIGIL ARGNUM_SIGIL COND_SIGIL
+%token ENGAGE_SIGIL SEARCH_SIGIL AUX_SIGIL ARGNUM_SIGIL COND_SIGIL KEYLETTER
 %token TRANSLIT LSDIR CATFILE DATETIME SUBOFFS
-%token EXEC EVAL EXECIF MATCHIF REFLECT
+%token EXEC EVAL EXECIF MATCHIF REFLECT CURRENT
 %token DIVERT UNDIVERT
 %token PUSH POP
 %token DEFINE UNDEF
 %token SIGILS LEFT_TOKENS RIGHT_TOKENS
-%token EXIT ERROR PRINT ENVIRON FORMATTED SYSARGS
+%token EXIT ERROR PRINT ENVIRON FORMATTED SYSARGS DNL
 %token GE LE EQ NE SHR SHL POW INCR DECR
 %token NEWLINE ESCAPE
-%token DIVNUM ARGNUM NUM
-%token SQUOTE WQUOTE DELIMITED ASCII
+%token DIVNUM ARGNUM NUM IDENT
+%token SQUOTE WQUOTE DELIMITED ASCII ARGUMENT
 
+%left  '*' '/' '%' POW
+%left  '+' '-'
+%right SHL SHR
+
+%union {
+	int64_t 	ival;
+	int		cval;
+	wchar_t*	wval;
+	char*		sval;
+}
+
+%type <ival> expr
+%type <sval> foreachbody
+%type <ival> exitset
+%type <wval> argnum
 
 %start mainop
 
@@ -69,16 +85,19 @@ mainop : call
        | eval
        | delimx
        | ifmatch
-       | Ifexec
+       | ifexec
        | reflect
+       | exit
+       | dnl
+       | sigil
+       | divert
+       | undivert
        ;
 
-body : argnum
-     | SQUOTE
-     | WQUOTE
-     | mainop
-     ;
-
+body: SQUOTE
+    | WQUOTE
+    | argnum
+    ;
 
 call : '$' IDENT args	       { 
      					invoke_macro($<wval>2); 
@@ -97,11 +116,11 @@ foreach : foreachset args
 	;
 
 foreachbody : KEYLETTER	       { invoke_printnext();		 }
-	    | body	       { OUTPUT($1);			 }
+	    | body	       { OUTPUT($<wval>1);		 }
 	    ;
 
 foreachset : ENGAGE_SIGIL
-	       '|' ASCII       { keyletter = $<cval>4;	         } 
+	       '|' ASCII       { keyletter = $<cval>3;	         } 
 	   ;
 
 print : printset
@@ -170,16 +189,16 @@ sigilset : ENGAGE_SIGIL
 	    SIGILS
 	;
 
-dnl : DNL_TOKEN			{ dnl();			}
+dnl : ENGAGE_SIGIL DNL		{ dnl();		       }
     ;
 
 pop : popset '|'
-          IDENT			{ $$ = pop_stack($<wval>3);     }
+          IDENT		       {  pop_stack($<wval>3);         }
     ;
 
 push : pushset '|'
          IDENT '=' body 
-	           NEWLINE     { push_stack($<wval>3, $5);     }
+	           NEWLINE     { push_stack($<wval>3, $<wval>5); }
      ;
 
 popset : ENGAGE_SIGIL POP;
@@ -192,7 +211,7 @@ undef : undefset '|'
 
 define : defset '|'
 	    IDENT '=' body
-	    	      NEWLINE  { insert_symbol($<wval>3, $5);  }
+	    	      NEWLINE  { insert_symbol($<wval>3, $<wval>5); }
        ;
 
 undefset : ENGAGE_SIGIL UNDEF;
@@ -217,9 +236,9 @@ searchset : SEARCH_SIGIL
 	  ;
 
 ifexec : COND_SIGIL
-            SQUOTE ','
-	    WQUOTE ','
-	    WQUOTE ','
+            SQUOTE '>'
+	    WQUOTE '?'
+	    WQUOTE ':'
 	    WQUOTE
 	    '|' EXECIF 		{
 	    				exec_cmd     = $<sval>2;
@@ -232,9 +251,9 @@ ifexec : COND_SIGIL
 	;
 
 ifmatch : COND_SIGIL
-	    SQUOTE ','
-	    SQUOTE ','
-	    WQUOTE ','
+	    SQUOTE '>'
+	    SQUOTE '?'
+	    WQUOTE ':'
 	    WQUOTE
 	    '|' MATCHIF		{
 	    				reg_input       = $<sval>2;
@@ -263,12 +282,12 @@ auxil : auxset
          '|' CATFILE		{ cat_file();			    }
       ;
 
-auxset : AUXIL_SIGIL
+auxset : AUX_SIGIL
            WQUOTE		{ set_auxil(&auxil_prim, $<wval>2); }
-       | auxset ','
+       | auxset '1'
 	   WQUOTE              { set_auxil(&auxil_sec, $<wval>3);  }
-       | auxset ','
-	   WQUOTE ',' WQUOTE   {
+       | auxset '2'
+	   WQUOTE '3' WQUOTE   {
 	  				set_auxil(&auxil_sec, $<wval>3);
 					set_auxil(&auxil_tert, $<wval>4);
 			       }
@@ -293,7 +312,7 @@ divert : divset '|'
 undivset : ENGAGE_SIGIL UNDIVERT;
 divset : ENGAGE_SIGIL DIVERT;
 
-delimx : execset '|'
+delimx : delimset '|'
             DELIMITED		{ 
 					init_delim_stream($<wval>3,
 							$<lenv>$);
@@ -319,14 +338,8 @@ execset : ENGAGE_SIGIL EXEC;
 
 evalset : ENGAGE_SIGIL EVAL;
 
-argnum : ARGNUM_SIGIL ARGNUM    {  yyexpand ? 
-       					invoke_printarg($<ival>2)
-					: NULL;
-				}
-       | ARGNUM_SIGIL WQUOTE    { yyexpand ?
-       				        invoke_printargs($<wval>2)
-					: NULL;
-				}
+argnum : ARGNUM_SIGIL ARGNUM    { $$ = invoke_getarg($<ival>2);   }
+       | ARGNUM_SIGIL WQUOTE    { $$ = invoke_joinargs($<wval>2); }
        ;
 
 expr : expr '+' NUM		{ $$ = $<ival>1 + $<ival>3;      }
