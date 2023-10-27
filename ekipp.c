@@ -28,7 +28,7 @@ static struct LinkedList {
 } *Symtable;
 
 void insert_symbol(wchar_t* name, wchar_t* value) {
-	node_t* 	node	= calloc(1, sizeof(node_t));
+	node_t* 	node	= GC_MALLOC(sizeof(node_t));
 	node->next	= Symtable;
 	node->name	= gc_wcsdup(name);
 	node->value     = gc_wcsdup(value);
