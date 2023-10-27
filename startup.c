@@ -255,7 +255,8 @@ static void parse_options(void) {
 int main(int argc, char** argv) {
 	sys_argc = argc;
 	sys_argv = argv;
-
+	
+	set_default();
 	parse_options();
 	hook_io();
 	on_startup();
