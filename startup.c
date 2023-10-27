@@ -12,31 +12,29 @@
 
 #include "ekipp.h"
 
-#define External   extern
-#define Local	   static 
 
 #define MAX_TOKEN  8
 
-External FILE*	   yyin;
-External FILE*     output;
-External int  	   yyparse(void);
-External void	   yyreflect(char* line);
-External void 	   do_on_exit(void);
-External char*	   optarg;
+extern FILE*   yyin;
+extern FILE*   output;
+extern int     yyparse(void);
+extern void    yyreflect(char* line);
+extern void    do_on_exit(void);
+extern char*   optarg;
 
-External   char    quote_left[MAX_TOKEN];
-External   char    quote_right[MAX_TOKEN];
-External   char    comment_left[MAX_TOKEN];
-External   char    comment_right[MAX_TOKEN];
-External   char    delim_left[MAX_TOKEN];
-External   char    delim_right[MAX_TOKEN];
-External   char    argnum_sigil[MAX_TOKEN];
-External   char    engage_sigil[MAX_TOKEN];
-External   char    cond_sigil[MAX_TOKEN];
-External   char    search_sigil[MAX_TOKEN];
-External   char    aux_sigil[MAX_TOKEN];
+extern char    quote_left[MAX_TOKEN];
+extern char    quote_right[MAX_TOKEN];
+extern char    comment_left[MAX_TOKEN];
+extern char    comment_right[MAX_TOKEN];
+extern char    delim_left[MAX_TOKEN];
+extern char    delim_right[MAX_TOKEN];
+extern char    argnum_sigil[MAX_TOKEN];
+extern char    engage_sigil[MAX_TOKEN];
+extern char    cond_sigil[MAX_TOKEN];
+extern char    search_sigil[MAX_TOKEN];
+extern char    aux_sigil[MAX_TOKEN];
 
-Local void close_io(void) {
+static void close_io(void) {
 	fflush(output);
 	fclose(yyin);
 	fclose(output);
@@ -49,7 +47,7 @@ void on_signal(int signum) {
 	}
 }
 
-Local void on_startup(void) {
+static void on_startup(void) {
 	atexit(do_on_exit);
 	atexit(close_io);
 
@@ -57,7 +55,7 @@ Local void on_startup(void) {
 	signal(SIGTERM, on_signal);
 }
 
-Local void repl(void) {
+static void repl(void) {
 	char* line;
 	while ((line = readline(NULL)) != NULL) {
 		yyreflect(line);
@@ -71,7 +69,7 @@ char	input_path[FILENAME_MAX]  = {0};
 char	output_path[FILENAME_MAX] = {0};
 
 
-Local void hook_io(void) {
+static void hook_io(void) {
 	if (input_path[0] == 0 && isatty(STDIN_FILENO)) {
 		repl();
 		exit(EXIT_SUCCESS);
@@ -89,7 +87,7 @@ Local void hook_io(void) {
 
 
 
-Local void parse_options(void) {
+static void parse_options(void) {
 	int	c;
 	enum {
 		LEFT = 0, RIGHT = 1,
