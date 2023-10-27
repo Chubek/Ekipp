@@ -19,7 +19,6 @@ extern FILE*   yyin;
 extern FILE*   output;
 extern int     yyparse(void);
 extern void    yyreflect(char* line);
-extern void    do_on_exit(void);
 extern char*   optarg;
 
 extern char    quote_left[MAX_TOKEN];
@@ -40,7 +39,7 @@ static void close_io(void) {
 	fclose(output);
 }
 
-void on_signal(int signum) {
+void do_on_signal(int signum) {
 	if (signum == SIGINT || signum == SIGTERM) {
 		do_on_exit();
 		close_io();
@@ -51,8 +50,8 @@ static void on_startup(void) {
 	atexit(do_on_exit);
 	atexit(close_io);
 
-	signal(SIGINT,  on_signal);
-	signal(SIGTERM, on_signal);
+	signal(SIGINT,  do_on_signal);
+	signal(SIGTERM, do_on_signal);
 }
 
 static void repl(void) {

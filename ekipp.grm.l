@@ -6,12 +6,13 @@
 #include <ctype.h>
 
 int 		yylex(void);
-void		yyerr(char* error);
+void		yyerror(char* err);
 FILE*		yyin;
 
 extern FILE*	output;
 
-#include "y.tab.h"
+#include "ekipp.h"
+#include "yy.tab.h"
 %}
 
 Decimal		[+-][1-9][0-9]*
@@ -83,16 +84,20 @@ sysargs		return SYSARGS;
 
 [\r\n]+		return NEWLINE;
 
-[\\]		return ESCAPE;
+\x5c		return ESCAPE;
 
-['] [^'] [']	{ yylval.cval = yytext[1]; return ASCII; }
+[\'][a-z][\']	{ yylval.cval = yytext[1]; return ASCII; }
 
-{Ident}		{ yylval.wval = wscndup(yytext, yyleng);  
+{Ident}		{ yylval.wval = wcsdup((wchar_t*)&yytext);  
 				return IDENT; }
 
-[^,]{1,255}	{ yylval.wval = wcsndup(&yytext[0], yyleng);
+[^,]{1,255}	{ yylval.wval = wcsdup((wchar_t*)&yytext[0]);
 				return ARGUMENT;	  }
 
 .+		ECHO;
 
 %%
+
+void yyerror(char* err) {
+	fputs(err, stderr);
+}

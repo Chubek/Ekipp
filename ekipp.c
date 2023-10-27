@@ -352,7 +352,7 @@ void init_delim_stream(wchar_t* text, size_t len) {
 	memset(&delim_fpath[0], 0, FILENAME_MAX);
 	delim_fpath[0] = 'X'; delim_fpath[1] = 'X'; delim_fpath[2] = 'X';
 	delim_fpath[3] = 'X'; delim_fpath[4] = 'X'; delim_fpath[5] = 'E';
-	if (mkstemp(&delim_fpath) < 0) {
+	if (mkstemp(&delim_fpath[0]) < 0) {
 		EEXIT(ERR_DELIM_FPATH, ECODE_DELIM_FPATH);
 	}
 
@@ -458,15 +458,16 @@ bool token_is(char* token, char* cmp, size_t len) {
 
 
 extern void 		yyinvoke(wchar_t* code);
-extern char		keyletter;
+char			keyletter;
 
 #ifndef ARG_MAX
 #define ARG_MAX		1024
 #endif
 
-wchar_t* 	invoke_argv[ARG_MAX];
-size_t	invoke_argc = 0;
-size_t	invoke_argn = 0;
+wchar_t* invoke_argv[ARG_MAX];
+wchar_t* joined_argv;
+size_t	 invoke_argc = 0;
+size_t	 invoke_argn = 0;
 
 void invoke_addarg(wchar_t* arg) {
 	invoke_argv[invoke_argc++] = wcsdup(arg);
@@ -487,6 +488,20 @@ void invoke_printarg(size_t n) {
 	}
 }
 
+void invoke_joinargs(wchar_t* delim) {
+	size_t n = 0;
+	size_t l = 0;
+	size_t i = 0;
+	while (n < invoke_argc - 1) {
+		l = wcslen(invoke_argv[n]);
+		wcsncat(&joined_argv[i], &invoke_argv[n++][0], l);
+		i += l;
+	}
+	l = wcslen(invoke_argv[++n]);
+	wcsncat(&joined_argv[i], &invoke_argv[n][0], l);
+	free(delim);
+}
+
 void invoke_printargs(wchar_t* delim) {
 	size_t n = 0;
 	while (n < invoke_argc - 1) {
@@ -503,6 +518,8 @@ void invoke_dumpargs(void) {
 		free(invoke_argv[invoke_argc]);
 	memset(&invoke_argv[0], 0, ARG_MAX * sizeof(wchar_t*));
 	invoke_argn = 0;
+	if (joined_argv)
+		free(joined_argv);
 }
 
 void invoke_macro(wchar_t *id) {
@@ -686,10 +703,10 @@ void format_time(void) {
 }
 
 void dnl(void) {
-	fscanf(yyin, "%*s\n", NULL);
+	fscanf(yyin, "%*s\n");
 }
 
-void do_at_exit(void) {
+void do_on_exit(void) {
 	dump_symtable();
 	dump_stack();
 	free_set_diverts();

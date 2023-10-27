@@ -26,6 +26,7 @@ extern   char    aux_sigil[MAX_TOKEN];
 
 extern	 wchar_t* fmt;
 extern   int 	  yylex(void);
+extern   void     yyerror(char* err);
 extern   FILE*    output;
 extern   FILE*    yyin;
 extern   char	  keyletter;
@@ -44,7 +45,7 @@ extern  char*	  reg_pattern;
 extern  wchar_t*  reg_matchmsg;
 extern  wchar_t*  reg_nomatchmsg;
 
-extern 	char*	  delim_cmd;
+extern 	char*	  delim_command;
 extern  int   	  current_divert;
 
 void 	yyinvoke(wchar_t* code);
@@ -84,7 +85,6 @@ bool  	yyexpand = false;
 %type <ival> expr
 %type <sval> foreachbody
 %type <ival> exitset
-%type <wval> argnum
 
 %start mainop
 
@@ -107,16 +107,20 @@ mainop : call
        | ifexec
        | reflect
        | exit
-       | dnl
+       | dnlx
        | sigil
        | divert
        | undivert
        ;
 
-body: SQUOTE
-    | WQUOTE
+body: bodyset
     | argnum
     ;
+
+bodyset : SQUOTE	       {  fputs($<sval>1, output);    }
+	| WQUOTE	       {  fputws($<wval>1, output);   }
+	;
+
 
 call : '$' IDENT args	       { 
      					invoke_macro($<wval>2); 
@@ -208,8 +212,8 @@ sigilset : ENGAGE_SIGIL
 	    SIGILS
 	;
 
-dnl : ENGAGE_SIGIL DNL		{ dnl();		       }
-    ;
+dnlx : ENGAGE_SIGIL DNL		{ dnl();		       }
+     ;
 
 pop : popset '|'
           IDENT		       {  pop_stack($<wval>3);         }
@@ -340,7 +344,7 @@ delimx : delimset '|'
        ;
 
 delimset : execset 
-	     '>' SQUOTE		{ delim_cmd = $<sval>3; 	    }
+	     '>' SQUOTE		{ delim_command = $<sval>3; 	    }
 
 exec : execset '|'
            SQUOTE	        { 
@@ -357,8 +361,8 @@ execset : ENGAGE_SIGIL EXEC;
 
 evalset : ENGAGE_SIGIL EVAL;
 
-argnum : ARGNUM_SIGIL ARGNUM    { $$ = invoke_getarg($<ival>2);   }
-       | ARGNUM_SIGIL WQUOTE    { $$ = invoke_joinargs($<wval>2); }
+argnum : ARGNUM_SIGIL ARGNUM    { invoke_printarg($<ival>2);     }
+       | ARGNUM_SIGIL WQUOTE    { invoke_printargs($<wval>2);    }
        ;
 
 expr : expr '+' NUM		{ $$ = $<ival>1 + $<ival>3;      }

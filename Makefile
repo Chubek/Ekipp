@@ -1,20 +1,22 @@
-FILES := lex.yy.c y.tab.c y.tab.h ekipp
+FILES := lex.yy.c yy.tab.c yy.tab.h ekipp
 
-all: clean lexer parser errcodes ekipp
 
-ekipp: lex.yy.c y.tab.c y.tab.h err \
-	errors.gen ekipp.c yylex.i ekipp.h
-	cc ekipp.c y.tab.c lex.yy.c -ll
 
-errcodes: 
+ekipp: errors.gen
+	cc ekipp.c startup.c yy.tab.c lex.yy.c -ll -lm -lreadline -o ekipp
+ 
+errors.gen: yy.tab.h
 	perl errgen.pl
 
-parser: lex.yy.c
-	yacc -d ekipp.y
+yy.tab.c: yy.tab.h
+	yacc -b yy ekipp.grm.y
 
-lexer:
-	lex ekipp.l
+yy.tab.h: lex.yy.c 
+	yacc -b yy -d ekipp.grm.y
 
-.PHONY
+lex.yy.c: clean
+	lex ekipp.grm.l
+
+.PHONY : clean
 clean: $(FILES)
 	rm -f $(FILES)

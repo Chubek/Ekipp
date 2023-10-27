@@ -44,7 +44,7 @@ void invoke_printnext(void);
 void invoke_printarg(size_t n); 
 void invoke_printargs(wchar_t* delim); 
 void invoke_dumpargs(void); 
-wchar_t* invoke_joinargs(wchar_t* delim);
+void invoke_joinargs(wchar_t* delim);
 void invoke_macro(wchar_t *id); 
 void foreach_macro(wchar_t* macro); 
 void print_formatted(void); 
@@ -59,5 +59,6 @@ void cat_file(void);
 void include_file(void);
 void format_time(void); 
 void dnl(void);
+void do_on_exit(void);
 
 #endif

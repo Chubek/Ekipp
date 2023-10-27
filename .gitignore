@@ -14,3 +14,5 @@ config.h
 *.so
 *.la
 *.gen
+lex.yy.c
+*.tab.*
