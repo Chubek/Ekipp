@@ -13,11 +13,9 @@ void insert_symbol(wchar_t* name, wchar_t* value);
 wchar_t* get_symbol(wchar_t* name); 
 void free_node(node_t* node); 
 void remove_symbol(wchar_t* name); 
-void dump_symtable(void); 
 void push_stack(wchar_t* name, wchar_t* value); 
 wchar_t* get_stack_value(wchar_t* name); 
 wchar_t* pop_stack(void); 
-void dump_stack(void); 
 void open_null_file(void); 
 void destroy_null_divert(void); 
 void set_divert(int n); 
@@ -43,7 +41,6 @@ wchar_t* invoke_getarg(size_t n);
 void invoke_printnext(void); 
 void invoke_printarg(size_t n); 
 void invoke_printargs(wchar_t* delim); 
-void invoke_dumpargs(void); 
 void invoke_joinargs(wchar_t* delim);
 void invoke_macro(wchar_t *id); 
 void foreach_macro(wchar_t* macro); 
@@ -60,5 +57,7 @@ void include_file(void);
 void format_time(void); 
 void dnl(void);
 void do_on_exit(void);
+wchar_t* gc_wcsdup(wchar_t* wcs);
+char*	 gc_strdup(char* wcs);
 
 #endif

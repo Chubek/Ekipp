@@ -14,6 +14,8 @@
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
 
+#include <gc.h>
+
 #include "ekipp.h"
 #include "errors.gen"
 
@@ -28,10 +30,8 @@ static struct LinkedList {
 void insert_symbol(wchar_t* name, wchar_t* value) {
 	node_t* 	node	= calloc(1, sizeof(node_t));
 	node->next	= Symtable;
-	node->name	= wcsdup(name);
-	node->value     = wcsdup(value);
-	free(name);
-	free(value);
+	node->name	= gc_wcsdup(name);
+	node->value     = gc_wcsdup(value);
 	Symtable	= node;
 }
 
@@ -46,11 +46,6 @@ wchar_t* get_symbol(wchar_t* name) {
 	return NULL;
 }
 
-void free_node(node_t* node) {
-	free(node->name);
-	free(node->value);
-	free(node);
-}
 
 void remove_symbol(wchar_t* name) {
 	node_t* 	node;
@@ -58,19 +53,12 @@ void remove_symbol(wchar_t* name) {
 
 	for (node = Symtable; node != NULL; node = node->next) {
 		if (!wcsncmp(node->name, name, len)) {
-			free(name);
-			free_node(node);
+			GC_FREE(node);
 		}
 	}
 
 }
 
-void dump_symtable(void) {
-	node_t*		node;
-
-	for (node = Symtable; node != NULL; node = node->next)
-		free_node(node);
-}
 
 #define MAX_STACK 	4096
 
@@ -81,10 +69,8 @@ static struct DefStack {
 size_t	stack_pointer = 0;
 
 void push_stack(wchar_t* name, wchar_t* value) {
-	Defstack[stack_pointer].name   = wcsdup(name);
-	Defstack[stack_pointer].value  = wcsdup(value);
-	free(name);
-	free(value);
+	Defstack[stack_pointer].name   = gc_wcsdup(name);
+	Defstack[stack_pointer].value  = gc_wcsdup(value);
 	stack_pointer++;
 }
 
@@ -102,13 +88,6 @@ wchar_t* get_stack_value(wchar_t* name) {
 
 wchar_t* pop_stack(void) {
 	return Defstack[--stack_pointer].value;
-}
-
-void dump_stack(void) {
-	while (--stack_pointer) {
-		free(Defstack[stack_pointer].name);
-		free(Defstack[stack_pointer].value);
-	}
 }
 
 
@@ -224,10 +203,6 @@ void ifelse_regmatch(void) {
 		? OUTPUT(reg_nomatchmsg)
 		: OUTPUT(reg_matchmsg);
 
-	free(reg_input);
-	free(reg_pattern);
-	free(reg_matchmsg);
-	free(reg_nomatchmsg);
 	regfree(&reg_cc);
 }
 
@@ -259,7 +234,6 @@ void search_file(FILE* stream) {
 		free(line_str);
 	}
 
-	free(reg_pattern);
 	regfree(&reg_cc);
 
 }
@@ -268,7 +242,6 @@ void open_search_close(char* path) {
 	FILE* stream = fopen(path, "r");
 	search_file(stream);
 	fclose(stream);
-	free(path);
 }
 
 extern FILE* yyin;
@@ -308,10 +281,6 @@ void ifelse_execmatch(void) {
 		: OUTPUT(exec_strne);
 	free(readtxt);
 	pclose(pipe);
-	free(exec_cmd);
-	free(exec_strcmp);
-	free(exec_strne);
-	free(exec_streq);
 }
 
 void exec_command(void) {
@@ -389,7 +358,6 @@ void exec_delim_command(void) {
 	free(readtxt);
 	pclose(pipe);
 	fclose(delim_stream);
-	free(delim_command);
 }
 #define MAX_TOKEN	8
 #define REGISTRY_SIZE	65536
@@ -437,8 +405,6 @@ void set_token(char* token, char* value) {
 	memset(&token[0], 0, MAX_TOKEN);
 	memmove(&token[0], &value[0], MAX_TOKEN);
 	reformat_fmts();
-	free(token);
-	free(value);
 }
 
 void reformat_fmts(void) {
@@ -470,8 +436,7 @@ size_t	 invoke_argc = 0;
 size_t	 invoke_argn = 0;
 
 void invoke_addarg(wchar_t* arg) {
-	invoke_argv[invoke_argc++] = wcsdup(arg);
-	free(arg);
+	invoke_argv[invoke_argc++] = gc_wcsdup(arg);
 }
 
 wchar_t* invoke_getarg(size_t n) {
@@ -499,7 +464,6 @@ void invoke_joinargs(wchar_t* delim) {
 	}
 	l = wcslen(invoke_argv[++n]);
 	wcsncat(&joined_argv[i], &invoke_argv[n][0], l);
-	free(delim);
 }
 
 void invoke_printargs(wchar_t* delim) {
@@ -510,16 +474,6 @@ void invoke_printargs(wchar_t* delim) {
 	}
 
 	OUTPUT(invoke_argv[n]);
-	free(delim);
-}
-
-void invoke_dumpargs(void) {
-	while (--invoke_argc)
-		free(invoke_argv[invoke_argc]);
-	memset(&invoke_argv[0], 0, ARG_MAX * sizeof(wchar_t*));
-	invoke_argn = 0;
-	if (joined_argv)
-		free(joined_argv);
 }
 
 void invoke_macro(wchar_t *id) {
@@ -707,17 +661,20 @@ void dnl(void) {
 }
 
 void do_on_exit(void) {
-	dump_symtable();
-	dump_stack();
 	free_set_diverts();
-	invoke_dumpargs();
 }
 
+wchar_t* gc_wcsdup(wchar_t* wcs) {
+	size_t 		len = wcslen(wcs);
+	wchar_t*	wsc = GC_MALLOC(sizeof(wchar_t) * len);
+	return memmove(&wsc[0], &wcs[0], len * sizeof(wchar_t));
+}
 
-
-
-
-
+char* gc_strdup(char* wcs) {
+	size_t 		len = strlen(wcs);
+	char*		wsc = GC_MALLOC(len);
+	return memmove(&wsc[0], &wcs[0], len);
+}
 
 
 

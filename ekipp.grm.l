@@ -10,6 +10,8 @@ void		yyerror(char* err);
 FILE*		yyin;
 
 extern FILE*	output;
+extern wchar_t* gc_wcsdup(wchar_t*);
+extern char*	gc_strdup(char*);
 
 #include "ekipp.h"
 #include "yy.tab.h"
@@ -88,10 +90,10 @@ sysargs		return SYSARGS;
 
 [\'][a-z][\']	{ yylval.cval = yytext[1]; return ASCII; }
 
-{Ident}		{ yylval.wval = wcsdup((wchar_t*)&yytext);  
+{Ident}		{ yylval.wval = gc_wcsdup((wchar_t*)&yytext);  
 				return IDENT; }
 
-[^,]{1,255}	{ yylval.wval = wcsdup((wchar_t*)&yytext[0]);
+[^,]{1,255}	{ yylval.wval = gc_wcsdup((wchar_t*)&yytext[0]);
 				return ARGUMENT;	  }
 
 .+		ECHO;

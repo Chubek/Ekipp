@@ -122,20 +122,16 @@ bodyset : SQUOTE	       {  fputs($<sval>1, output);    }
 	;
 
 
-call : '$' IDENT args	       { 
-     					invoke_macro($<wval>2); 
-					invoke_dumpargs();
-			       }
+call : '$' IDENT args	       {  invoke_macro($<wval>2);      }
      | ESCAPE '$' IDENT args   {
 					fputc('$', output);
 					OUTPUT($<wval>3);
 					invoke_printargs(L" ");
-					invoke_dumpargs();
 			       }
      ;
 
 foreach : foreachset args
-	   '[' foreachbody ']' { invoke_dumpargs();		 }
+	   '[' foreachbody ']'
 	;
 
 foreachbody : KEYLETTER	       { invoke_printnext();		 }
