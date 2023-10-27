@@ -19,7 +19,7 @@ wchar_t*        str_wide;
 size_t          str_len;
 char            keycompare;
 
-fscanf(yyin, &fmt_comment[0]);
+fscanf(yyin, &fmt_comment[0], NULL);
 
 if ((keycompare = fgetc(yyin)) == keyletter && !isblank(keycompare))
         return KEYLETTER;

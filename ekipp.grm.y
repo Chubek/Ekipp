@@ -46,7 +46,7 @@ extern  wchar_t*  reg_matchmsg;
 extern  wchar_t*  reg_nomatchmsg;
 
 extern 	char*	  delim_command;
-extern  int   	  current_divert;
+extern  FILE*  	  current_divert;
 
 void 	yyinvoke(wchar_t* code);
 void	yyreflect(char* line);
@@ -216,7 +216,7 @@ dnlx : ENGAGE_SIGIL DNL		{ dnl();		       }
      ;
 
 pop : popset '|'
-          IDENT		       {  pop_stack($<wval>3);         }
+          IDENT		       {  pop_stack();         	       }
     ;
 
 push : pushset '|'
@@ -348,7 +348,7 @@ delimset : execset
 
 exec : execset '|'
            SQUOTE	        { 
-	  				exec_cmd = $<wval>3;
+	  				exec_cmd = $<sval>3;
 					exec_command();
 				}
      ;

@@ -16,3 +16,4 @@ config.h
 *.gen
 lex.yy.c
 *.tab.*
+ekipp

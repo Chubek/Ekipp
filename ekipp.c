@@ -88,7 +88,7 @@ void push_stack(wchar_t* name, wchar_t* value) {
 	stack_pointer++;
 }
 
-wchar_t*	pop_stack_value(wchar_t* name) {
+wchar_t* get_stack_value(wchar_t* name) {
 	size_t len = wcslen(name);
 	size_t ptr = stack_pointer;
 
@@ -100,7 +100,7 @@ wchar_t*	pop_stack_value(wchar_t* name) {
 	return NULL;
 }
 
-wchar_t* stack_pop(void) {
+wchar_t* pop_stack(void) {
 	return Defstack[--stack_pointer].value;
 }
 
@@ -525,7 +525,7 @@ void invoke_dumpargs(void) {
 void invoke_macro(wchar_t *id) {
 	wchar_t* macro = get_symbol(id);
 	if (!macro)
-		macro = pop_stack_value(id);
+		macro = get_stack_value(id);
 	if (!macro) {
 		EEXIT(ERR_UNKNOWN_MACRO, ECODE_UNKNOWN_MACRO);
 	}
