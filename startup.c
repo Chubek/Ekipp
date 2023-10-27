@@ -84,7 +84,74 @@ static void hook_io(void) {
 		output = fopen(&output_path[0], "w");
 }
 
+#define LQUOTE_DFL 		"``"
+#define RQUOTE_DFL 		"``"
+#define LCOMMENT_DFL		"/*"
+#define RCOMMENT_DFL		"*/"
+#define LDELIM_DFL		"<:?"
+#define RDELIM_DFL		":?>"
+#define ENGAGE_SIGIL_DFL	"#!"
+#define AUX_SIGIL_DFL		"#%"
+#define COND_SIGIL_DFL		"#?"
+#define ARGNUM_SIGIL_DFL	"##"
+#define SEARCH_SIGIL_DFL	"#&"
 
+
+static void set_default(void) {
+	set_token(&quote_left[0], 
+			getenv("EKIPP_LQUOTE") 
+				? getenv("EKIPP_LQUOTE")
+				: LQUOTE_DFL);
+	set_token(&quote_right[0], 
+			getenv("EKIPP_RQUOTE") 
+				? getenv("EKIPP_RQUOTE")
+				: RQUOTE_DFL);
+
+	set_token(&comment_left[0], 
+			getenv("EKIPP_LCOMMENT") 
+				? getenv("EKIPP_LCOMMENT")
+				: LCOMMENT_DFL);
+	set_token(&comment_right[0], 
+			getenv("EKIPP_RCOMMENT") 
+				? getenv("EKIPP_RCOMMENT")
+				: RCOMMENT_DFL);
+
+	set_token(&delim_left[0], 
+			getenv("EKIPP_LDELIM") 
+				? getenv("EKIPP_LDELIM")
+				: LDELIM_DFL);
+	set_token(&delim_right[0], 
+			getenv("EKIPP_RDELIM") 
+				? getenv("EKIPP_RDELIM")
+				: RDELIM_DFL);
+
+	set_token(&engage_sigil[0],
+			getenv("EKIPP_ENGAGE_SIGIL")
+				? getenv("EKIPP_ENGAGE_SIGIL")
+				: ENGAGE_SIGIL_DFL);
+
+	set_token(&aux_sigil[0],
+			getenv("EKIPP_AUX_SIGIL")
+				? getenv("EKIPP_AUX_SIGIL")
+				: AUX_SIGIL_DFL);
+
+	set_token(&cond_sigil[0],
+			getenv("EKIPP_COND_SIGIL")
+				? getenv("EKIPP_COND_SIGIL")
+				: COND_SIGIL_DFL);
+
+	set_token(&argnum_sigil[0],
+			getenv("EKIPP_ARGNUM_SIGIL")
+				? getenv("EKIPP_ARGNUM_SIGIL")
+				: ARGNUM_SIGIL_DFL);
+
+	set_token(&search_sigil[0],
+			getenv("EKIPP_SEARCH_SIGIL")
+				? getenv("EKIPP_SEARCH_SIGIL")
+				: SEARCH_SIGIL_DFL);
+
+
+}
 
 static void parse_options(void) {
 	int	c;
