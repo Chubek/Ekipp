@@ -366,7 +366,7 @@ char	quote_left[MAX_TOKEN];
 char	quote_right[MAX_TOKEN];
 char	comment_left[MAX_TOKEN];
 char	comment_right[MAX_TOKEN];
-	char	delim_left[MAX_TOKEN];
+char	delim_left[MAX_TOKEN];
 char	delim_right[MAX_TOKEN];
 char	argnum_sigil[MAX_TOKEN];
 char	engage_sigil[MAX_TOKEN];
@@ -376,9 +376,9 @@ char	aux_sigil[MAX_TOKEN];
 
 #define MAX_FMT		MAX_TOKEN * 8
 
-   char fmt_delim[MAX_FMT]; 
-   char fmt_comment[MAX_FMT];
-   char fmt_quote[MAX_FMT];
+char fmt_delim[MAX_FMT]; 
+char fmt_comment[MAX_FMT];
+char fmt_quote[MAX_FMT];
 
 bool	tokens_registry[REGISTRY_SIZE];
 
