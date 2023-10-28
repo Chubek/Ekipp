@@ -61,15 +61,15 @@ while ((token[token_ptr++] = fgetc(yyin)), token_ptr < MAX_TOKEN - 1) {
         if (isblank(token[token_ptr - 1]))
                 break;
 
-        if (token_is(&token[0], &argnum_sigil[0], token_ptr))
+        if (!strncmp(&token[0], &argnum_sigil[0], MAX_TOKEN))
                 return ARGNUM_SIGIL;
-        else if (token_is(&token[0], &engage_sigil[0], token_ptr))
+        else if (!strncmp(&token[0], &engage_sigil[0], MAX_TOKEN))
                 return ENGAGE_SIGIL;
-        else if (token_is(&token[0], &cond_sigil[0], token_ptr))
+        else if (!strncmp(&token[0], &cond_sigil[0], MAX_TOKEN))
                 return COND_SIGIL;
-        else if (token_is(&token[0], &search_sigil[0], token_ptr))
+        else if (!strncmp(&token[0], &search_sigil[0], MAX_TOKEN))
                 return SEARCH_SIGIL;
-        else if (token_is(&token[0], &aux_sigil[0], token_ptr))
+        else if (!strncmp(&token[0], &aux_sigil[0], MAX_TOKEN))
                 return AUX_SIGIL;
 
 }
