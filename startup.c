@@ -168,7 +168,7 @@ static void parse_options(void) {
 
 	while (true) {
 		static char* short_options = 
-			   "e::a::c::s::x::f::o::q::k::d::h";
+			   "e:a:c:s:x:f:o:q:k:d:h";
 		char* subopts;
 		char* val;
 		char* tok;
@@ -200,19 +200,29 @@ static void parse_options(void) {
 		switch (c) {
 			case 'e':
 				set_token(&engage_sigil[0], optarg);
-				continue;
+				break;
 			case 'a':
 				set_token(&argnum_sigil[0], optarg);
-				continue;
+				break;
 			case 'c':
 				set_token(&cond_sigil[0], optarg);
-				continue;
+				break;
 			case 's':
 				set_token(&search_sigil[0], optarg);
-				continue;
+				break;
 			case 'x':
 				set_token(&aux_sigil[0], optarg);
-				continue;
+				break;
+			case 'f':
+				strncpy(&input_path[0], 
+						optarg,
+						strlen(optarg));
+				break;
+			case 'o':
+				strncpy(&output_path[0], 
+						optarg,
+						strlen(optarg));
+				break;
 			case 'q':
 			case 'k':
 			case 'd':
@@ -226,6 +236,7 @@ static void parse_options(void) {
 							? &comment_left[0]
 							: &delim_left[0]);
 						set_token(&tok[0], val);
+						break;
 					case RIGHT:
 						tok = c == 'q'
                                                    ? &quote_right[0]
@@ -233,19 +244,10 @@ static void parse_options(void) {
 							? &comment_right[0]
 							: &delim_right[0]);
 						set_token(&tok[0], val);
-				continue;
-			case 'f':
-				strncpy(&input_path[0], 
-						optarg,
-						strlen(optarg));
-				continue;
-			case 'o':
-				strncpy(&output_path[0], 
-						optarg,
-						strlen(optarg));
-				continue;
+						break;
+				break;
 			default:
-				continue;
+				break;
 				}
 
 		}
