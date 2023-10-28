@@ -403,7 +403,7 @@ void register_token(char* token) {
 void set_token(char* token, char* value) {
 	register_token(value);
 	memset(&token[0], 0, MAX_TOKEN);
-	memmove(&token[0], &value[0], MAX_TOKEN);
+	memmove(&token[0], &value[0], strlen(&value[0]));
 	reformat_fmts();
 }
 
