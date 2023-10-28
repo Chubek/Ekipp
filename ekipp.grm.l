@@ -4,6 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <limits.h>
+
+#include <gc.h>
 
 int 		yylex(void);
 void		yyerror(char* err);

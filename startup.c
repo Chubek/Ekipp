@@ -12,6 +12,7 @@
 
 #include "ekipp.h"
 
+#include <gc.h>
 
 #define MAX_TOKEN  8
 
@@ -84,8 +85,8 @@ static void hook_io(void) {
 		output = fopen(&output_path[0], "w");
 }
 
-#define LQUOTE_DFL 		"``"
-#define RQUOTE_DFL 		"``"
+#define LQUOTE_DFL 		"q//"
+#define RQUOTE_DFL 		"//q"
 #define LCOMMENT_DFL		"/*"
 #define RCOMMENT_DFL		"*/"
 #define LDELIM_DFL		"<:?"
@@ -253,6 +254,8 @@ static void parse_options(void) {
 }
 
 int main(int argc, char** argv) {
+	GC_INIT();
+
 	sys_argc = argc;
 	sys_argv = argv;
 	

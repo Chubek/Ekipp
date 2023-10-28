@@ -3,7 +3,7 @@ FILES := lex.yy.c yy.tab.c yy.tab.h ekipp
 
 
 ekipp: errors.gen
-	cc ekipp.c startup.c yy.tab.c lex.yy.c -lgc -ll -lm -lreadline -o ekipp
+	cc -ggdb3 ekipp.c startup.c yy.tab.c lex.yy.c -lgc -ll -lm -lreadline -o ekipp
  
 errors.gen: yy.tab.h
 	perl errgen.pl
