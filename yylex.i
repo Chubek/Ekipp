@@ -14,10 +14,14 @@ External    char search_sigil[MAX_TOKEN];
 External    char aux_sigil[MAX_TOKEN];
 External    char keyletter;
 
-char*           str_ascii;
-wchar_t*        str_wide;
-size_t          str_len;
-char            keycompare;
+char*           str_ascii       = GC_MALLOC(LINE_MAX);
+wchar_t*        str_wide        = GC_MALLOC(LINE_MAX * sizeof(wchar_t));
+ssize_t          str_len        = 0;
+char            keycompare      = 0;
+
+if (feof(yyin)) {
+        exit(EXIT_SUCCESS);
+}
 
 fscanf(yyin, &fmt_comment[0], NULL);
 
@@ -26,26 +30,29 @@ if ((keycompare = fgetc(yyin)) == keyletter && !isblank(keycompare))
 
 ungetc(keycompare, yyin);
 
-if ((str_len = fwscanf(yyin, (wchar_t*)&fmt_delim[0], str_wide)) > 0) {
+if ((str_len = fwscanf(yyin, (wchar_t*)&fmt_delim[0], &str_wide)) > 0) {
         yylval.wval = gc_wcsdup(str_wide);
         yylval.lenv = str_len;
         free(str_wide);
         return DELIMITED;
 }
 
-if ((str_len = fwscanf(yyin, (wchar_t*)&fmt_quote[0], str_wide)) > 0) {
+if ((str_len = fwscanf(yyin, (wchar_t*)&fmt_quote[0], &str_wide)) > 0) {
         yylval.wval = gc_wcsdup(str_wide);
         yylval.lenv = str_len;
         free(str_wide);
         return WQUOTE;
 }
 
-if ((str_len = fscanf(yyin, &fmt_quote[0], str_ascii)) > 0) {
+if ((str_len = fscanf(yyin, &fmt_quote[0], &str_ascii)) > 0) {
         yylval.sval = gc_strdup(str_ascii);
         yylval.lenv = str_len;
         free(str_ascii);
         return SQUOTE;
 }
+
+if (str_len < 0)
+        exit(EXIT_SUCCESS);
 
 char    token[MAX_TOKEN] = {0};
 size_t  token_ptr = 0;
