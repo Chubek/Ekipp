@@ -9,8 +9,12 @@
 #include <gc.h>
 
 int 		yylex(void);
-void		yyerror(char* err);
+int		yywrap(void);
+void		yyerror(const char* err);
 FILE*		yyin;
+
+extern char	input_files[FILENAME_MAX][MAX_INPUT];
+static int	input_idx = 0;
 
 extern FILE*	output;
 extern wchar_t* gc_wcsdup(wchar_t*);
@@ -20,36 +24,45 @@ extern char*	gc_strdup(char*);
 #include "yy.tab.h"
 %}
 
-Decimal		[+-][1-9][0-9]*
+Zero		[0]
+Decimal		[+-]?[1-9][0-9]*
 Hexal		[0xX][a-fA-F0-9]+
 Octal		[0oO][0-7]+
 Binary		[0bB][0-1]+
 Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
+
+%x ESC
+%x ENG
+%x REG
 %%
 	#include "yylex.i"
 
-{Decimal}	{ yylval.ival = strtoll(yytext, NULL, 10); 
-				return NUM;  }
-{Hexal}		{ yylval.ival = strtoll(&yytext[2], NULL, 16); 
-				return NUM;  }
-{Octal}		{ yylval.ival = strtoll(&yytext[2], NULL, 8); 
-				return NUM;   }
-{Binary}	{ yylval.ival = strtoll(&yytext[2], NULL, 2); 
-				return NUM;   }
-[0-9]		{ yylval.ival = atoi(&yytext[0]); 
+$div:[0-9]	{ yylval.ival = atoi(&yytext[5]); 
 				return DIVNUM; }
-[0-9]+		{ yylval.ival = atoi(&yytext[0]); 
+$arg:[0-9]+	{ yylval.ival = atoi(&yytext[5]); 
 				return ARGNUM; }
+{Zero}		{ yylval.ival = 0; 
+				return NUM;    }
+{Decimal}	{ yylval.ival = strtoll(yytext, NULL, 10); 
+				return NUM;    }
+{Hexal}		{ yylval.ival = strtoll(&yytext[2], NULL, 16); 
+				return NUM;    }
+{Octal}		{ yylval.ival = strtoll(&yytext[2], NULL, 8); 
+				return NUM;    }
+{Binary}	{ yylval.ival = strtoll(&yytext[2], NULL, 2); 
+				return NUM;    }
+
 
 engage		return ENGAGE;
 dnl		return DNL;
-exec-if		return EXECIF;
-match-if	return MATCHIF;
+delim		return DELIM;
+comment		return COMMENT;
+quote		return QUOTE;
 
 lsdir		return LSDIR;
 translit	return TRANSLIT;
 catfile		return CATFILE;
-suboffset	return SUBOFFS;
+offset		return OFFSET;
 datetime	return DATETIME;
 
 divert		return DIVERT;
@@ -58,24 +71,23 @@ undivert	return UNDIVERT;
 exec		return EXEC;
 eval		return EVAL;
 
-pop		return POP;
 push		return PUSH;
+pop		return POP;
 
 define		return DEFINE;
 undef		return UNDEF;
 
 reflect		return REFLECT;
 current		return CURRENT;
-sigils		return SIGILS;
-left-tokens	return LEFT_TOKENS;
-right-tokens	return RIGHT_TOKENS;
 
 exit		return EXIT;
 error		return ERROR;
 print		return PRINT;
-environ		return ENVIRON;
-formatted	return FORMATTED;
-sysargs		return SYSARGS;
+printf		return PRINTF;
+mode		return MODE;
+argv		return ARGV;
+
+include		return INCLUDE;
 
 >=		return GE;
 \<=		return LE;
@@ -85,24 +97,49 @@ sysargs		return SYSARGS;
 \<<		return SHL;
 \*\*		return POW;
 \+\+		return INCR;
---		return DECR;
+\-\-		return DECR;
 
-[\r\n]+		return NEWLINE;
+[\r\n]+		ECHO;
 
-\x5c		return ESCAPE;
+[/]		{ BEGIN REG; }
 
-[\'][a-z][\']	{ yylval.cval = yytext[1]; return ASCII; }
+\\ 		{ BEGIN ESC; }
 
-{Ident}		{ yylval.wval = gc_wcsdup((wchar_t*)&yytext);  
-				return IDENT; }
 
-[^,]{1,255}	{ yylval.wval = gc_wcsdup((wchar_t*)&yytext[0]);
-				return ARGUMENT;	  }
+<REG>[^\/]+	{ yylval.sval = &yytext[0]; return REGEX; }
+<REG>[\/]	    { BEGIN INITIAL; }
+<ESC>.+	    	   return ESC_TEXT;
+<ESC>[\n\r]{2}	    { BEGIN INITIAL; }
+<ENG>[$<>?:lr()]   return *yytext;
+<ENG>[\n\r]{2}	    { ECHO; BEGIN INITIAL; }
 
-.+		ECHO;
+{Ident}		{ yylval.wval = gc_wcsdup((wchar_t*)&yytext[0]);
+				return IDENT;    }
+
+[ \t]+		    ECHO;
+
+[^a-zA-Z]{1,8}   return VTOK;
+
+[0-9a-zA-Z_/-]{1,255}	{ yylval.sval = gc_strdup(&yytext[0]);
+				return FILEPATH; }
+
+[^,]{1,2048}	  return ARGUMENT;
+
+<<EOF>>		yyterminate();
 
 %%
 
-void yyerror(char* err) {
+void yyerror(const char* err) {
 	fputs(err, stderr);
+}
+
+int yywrap(void) {
+	if (input_idx == MAX_INPUT - 1 || !input_files[input_idx])
+		return 1;
+	else {
+		if (yyin) 
+			fclose(yyin);
+		yyin = fopen(input_files[input_idx++], "r");
+		return 0;
+	}
 }
