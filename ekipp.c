@@ -187,7 +187,7 @@ void unswitch_output(void) {
 }
 
 #define NMATCH		1
-	regex_t		reg_cc;
+regex_t		reg_cc;
 regmatch_t	reg_pmatch[NMATCH];
 char*		reg_input;
 char*		reg_pattern;
@@ -368,17 +368,11 @@ char	comment_left[MAX_TOKEN];
 char	comment_right[MAX_TOKEN];
 char	delim_left[MAX_TOKEN];
 char	delim_right[MAX_TOKEN];
-char	argnum_sigil[MAX_TOKEN];
 char	engage_sigil[MAX_TOKEN];
-char	cond_sigil[MAX_TOKEN];
-char	search_sigil[MAX_TOKEN];
-char	aux_sigil[MAX_TOKEN];
 
 #define MAX_FMT		MAX_TOKEN * 8
 
-char fmt_delim[MAX_FMT]; 
-char fmt_comment[MAX_FMT];
-char fmt_quote[MAX_FMT];
+char 	comment_fmt[MAX_FMT];
 
 bool	tokens_registry[REGISTRY_SIZE];
 
@@ -408,14 +402,8 @@ void set_token(char* token, char* value) {
 }
 
 void reformat_fmts(void) {
-	sprintf(&fmt_delim[0], 
-			"%s%%s%s", &delim_left[0], &delim_right[0]);
-	
-	sprintf(&fmt_comment[0], 
+	sprintf(&comment_fmt[0], 
 			"%s%%*s%s", &comment_left[0], &comment_right[0]);
-
-	sprintf(&fmt_quote[0], 
-			"%s%%s%s", &quote_left[0], &quote_right[0]);
 }
 
 bool token_is(char* token, char* cmp, size_t len) {
@@ -526,14 +514,10 @@ wchar_t*	aux_sec;
 wchar_t*	aux_tert;
 
 void set_aux(wchar_t** aux, wchar_t* value) {
-	*aux = wcsdup(value);
+	*aux = gc_wcsdup(value);
 }
 
-void free_aux(wchar_t* aux) {
-	free(aux);
-}
-
-void translit(int action) {
+void translit(void) {
 	#define INPUT 		aux_prim
 	#define SRCMAP		aux_sec
 	#define DSTMAP		aux_tert
@@ -553,8 +537,6 @@ void translit(int action) {
 			fputwc(wc, output);
 	}
 	OUTPUT(&INPUT[++offs]);
-
-	free_aux(INPUT); free_aux(SRCMAP); free_aux(DSTMAP);
 
 	#undef INPUT
 	#undef SRCMAP
@@ -592,7 +574,6 @@ void list_dir(void) {
 	}
 
 	closedir(stream);
-	free_aux(DIR_PATH);
 
 	#undef DIR_PATH
 }
@@ -623,7 +604,6 @@ void cat_file(void) {
 	fclose(stream);
 	free(text);
 
-	free_aux(FILE_PATH);
 
 	#undef FILE_PATH
 }
@@ -650,8 +630,6 @@ void format_time(void) {
 	}
 
 	fputs(&out_time[0], output);
-
-	free_aux(FMT);
 
 	#undef FMT
 }
