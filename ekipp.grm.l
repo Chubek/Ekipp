@@ -40,6 +40,8 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 %%
 	#include "yylex.i"
 
+<INITIAL>[ \t]	    		   ECHO;
+<ESC,ENG,REG,ARG,INB,MOD,EVL>[ \t] {};
 <*><<EOF>>	  { yyterminate();   }
 <EVL,ENG,MOD>[;]  { BEGIN(INITIAL); return *yytext;  }
 
@@ -49,11 +51,11 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 				return NUM;    }
 <EVL>{Octal}	 { yylval.ival = strtoll(&yytext[2], NULL, 8); 
 				return NUM;    }
-<EVL>{Binary}	 {  yylval.ival = strtoll(&yytext[2], NULL, 2); 
+<EVL>{Binary}	 { yylval.ival = strtoll(&yytext[2], NULL, 2); 
 				return NUM;    }
-<ENG>^[0-9]	 { yylval.ival = atoi(&yytext[5]); 
+<ENG>[0-9]	 { yylval.ival = atoi(&yytext[5]); 
 				return DIVNUM; }
-<ENG>^[0-9]+ { yylval.ival = atoi(&yytext[5]); 
+<ENG>[0-9]+      { yylval.ival = atoi(&yytext[5]); 
 				return ARGNUM; }
 <ENG>engage	return ENGAGE;
 <ENG>dnl	return DNL;
@@ -102,7 +104,6 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 <EVL>\-\-	return DECR;
 
 <EVL>[\*\+\-\%$]  return *yytext;
-<EVL>[ \t]+	  REJECT;
 
 [\r\n]+		ECHO;
 
@@ -112,19 +113,16 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 
 <INITIAL,ENG>[/]	{ BEGIN(REG); }
 
-<INITIAL,ENG>\\ 		{ BEGIN(ESC); }
+<INITIAL,ENG>\\ 	{ BEGIN(ESC); }
 
 <REG>[^\/]+	{ yylval.sval = &yytext[0]; return REGEX; }
 <REG>[\/]	    { BEGIN(INITIAL); }
 
 <ESC>.+	       return ESC_TEXT;
-<ESC>;	       { BEGIN(INITIAL); }
+<ESC>[\n\r]+   { BEGIN(INITIAL); }
 
 <ENG>{Ident}		{ yylval.wval = gc_wcsdup((wchar_t*)&yytext[0]);
 				BEGIN(ARG); return IDENT;    }
-
-<INITIAL>[ \t]+	ECHO;
-<ENG>[ \t]+	REJECT;
 
 <MOD>[$]		return *yytext;
 <MOD>[^a-zA-Z]{1,8}   { BEGIN(INITIAL); return VTOK; }
@@ -132,14 +130,14 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 <ENG>[0-9a-zA-Z_/-]{1,255}	{ yylval.sval = gc_strdup(&yytext[0]);
 					return FILEPATH; }
 <ARG>[^,^)^(^\n]+	{ yylval.wval = gc_wcsdup((wchar_t*)&yytext[0]);
-			return ARGUMENT; }
-	<ARG>[()]	return *yytext;
+					return ARGUMENT; }
+<ARG>[()]	return *yytext;
 <ARG>,		BEGIN(INB);
 <INB>[^)]	BEGIN(ARG);
 <INB>[)]	BEGIN(ENG);
 
-<INITIAL>.+		ECHO;
-
+<INITIAL>.+	ECHO;
+<INITIAL>[\n]	ECHO;
 %%
 
 void yyerror(const char* err) {
