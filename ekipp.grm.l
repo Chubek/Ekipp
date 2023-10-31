@@ -24,8 +24,7 @@ extern char*	gc_strdup(char*);
 #include "yy.tab.h"
 %}
 
-Zero		[0]
-Decimal		[+-]?[1-9][0-9]*
+Decimal		[0-9]+
 Hexal		[0xX][a-fA-F0-9]+
 Octal		[0oO][0-7]+
 Binary		[0bB][0-1]+
@@ -34,98 +33,112 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 %x ESC
 %x ENG
 %x REG
+%x ARG
+%x INB
+%x MOD
+%x EVL
 %%
 	#include "yylex.i"
 
-$div:[0-9]	{ yylval.ival = atoi(&yytext[5]); 
+<*><<EOF>>	  { yyterminate();   }
+<EVL,ENG,MOD>[;]  { BEGIN(INITIAL); return *yytext;  }
+
+<EVL>{Decimal}	 { yylval.ival = strtoll(yytext, NULL, 10); 
+				return NUM;    }
+<EVL>{Hexal}	 { yylval.ival = strtoll(&yytext[2], NULL, 16); 
+				return NUM;    }
+<EVL>{Octal}	 { yylval.ival = strtoll(&yytext[2], NULL, 8); 
+				return NUM;    }
+<EVL>{Binary}	 {  yylval.ival = strtoll(&yytext[2], NULL, 2); 
+				return NUM;    }
+<ENG>^[0-9]	 { yylval.ival = atoi(&yytext[5]); 
 				return DIVNUM; }
-$arg:[0-9]+	{ yylval.ival = atoi(&yytext[5]); 
+<ENG>^[0-9]+ { yylval.ival = atoi(&yytext[5]); 
 				return ARGNUM; }
-{Zero}		{ yylval.ival = 0; 
-				return NUM;    }
-{Decimal}	{ yylval.ival = strtoll(yytext, NULL, 10); 
-				return NUM;    }
-{Hexal}		{ yylval.ival = strtoll(&yytext[2], NULL, 16); 
-				return NUM;    }
-{Octal}		{ yylval.ival = strtoll(&yytext[2], NULL, 8); 
-				return NUM;    }
-{Binary}	{ yylval.ival = strtoll(&yytext[2], NULL, 2); 
-				return NUM;    }
+<ENG>engage	return ENGAGE;
+<ENG>dnl	return DNL;
+<ENG>delim	return DELIM;
+<ENG>comment	return COMMENT;
+<ENG>quote	return QUOTE;
 
+<ENG>lsdir	return LSDIR;
+<ENG>translit	return TRANSLIT;
+<ENG>catfile	return CATFILE;
+<ENG>offset	return OFFSET;
+<ENG>datetime	return DATETIME;
 
-engage		return ENGAGE;
-dnl		return DNL;
-delim		return DELIM;
-comment		return COMMENT;
-quote		return QUOTE;
+<ENG>divert	return DIVERT;
+<ENG>undivert	return UNDIVERT;
 
-lsdir		return LSDIR;
-translit	return TRANSLIT;
-catfile		return CATFILE;
-offset		return OFFSET;
-datetime	return DATETIME;
+<ENG>exec	return EXEC;
+<ENG>eval	{ BEGIN(EVL); return EVAL; }
 
-divert		return DIVERT;
-undivert	return UNDIVERT;
+<ENG>push	return PUSH;
+<ENG>pop	return POP;
 
-exec		return EXEC;
-eval		return EVAL;
+<ENG>define	return DEFINE;
+<ENG>undef	return UNDEF;
 
-push		return PUSH;
-pop		return POP;
+<ENG>reflect	return REFLECT;
+<ENG>current	return CURRENT;
 
-define		return DEFINE;
-undef		return UNDEF;
+<ENG>exit	return EXIT;
+<ENG>error	return ERROR;
+<ENG>print	return PRINT;
+<ENG>printf	return PRINTF;
+<ENG>mode	{ BEGIN(MOD); return MODE; }
+<ENG>argv	return ARGV;
 
-reflect		return REFLECT;
-current		return CURRENT;
+<ENG>include	return INCLUDE;
 
-exit		return EXIT;
-error		return ERROR;
-print		return PRINT;
-printf		return PRINTF;
-mode		return MODE;
-argv		return ARGV;
+<EVL>>=		return GE;
+<EVL>\<=	return LE;
+<EVL>==		return EQ;
+<EVL>!=		return NE;
+<EVL>>>		return SHR;
+<EVL>\<<	return SHL;
+<EVL>\*\*	return POW;
+<EVL>\+\+	return INCR;
+<EVL>\-\-	return DECR;
 
-include		return INCLUDE;
-
->=		return GE;
-\<=		return LE;
-==		return EQ;
-!=		return NE;
->>		return SHR;
-\<<		return SHL;
-\*\*		return POW;
-\+\+		return INCR;
-\-\-		return DECR;
+<EVL>[\*\+\-\%$]  return *yytext;
+<EVL>[ \t]+	  REJECT;
 
 [\r\n]+		ECHO;
 
-[/]		{ BEGIN REG; }
+<ENG>[$<>?:()]   return *yytext;
+<ENG>[\n\r]	 { ECHO; BEGIN(INITIAL); }
 
-\\ 		{ BEGIN ESC; }
 
+<INITIAL,ENG>[/]	{ BEGIN(REG); }
+
+<INITIAL,ENG>\\ 		{ BEGIN(ESC); }
 
 <REG>[^\/]+	{ yylval.sval = &yytext[0]; return REGEX; }
-<REG>[\/]	    { BEGIN INITIAL; }
-<ESC>.+	    	   return ESC_TEXT;
-<ESC>[\n\r]{2}	    { BEGIN INITIAL; }
-<ENG>[$<>?:lr()]   return *yytext;
-<ENG>[\n\r]{2}	    { ECHO; BEGIN INITIAL; }
+<REG>[\/]	    { BEGIN(INITIAL); }
 
-{Ident}		{ yylval.wval = gc_wcsdup((wchar_t*)&yytext[0]);
-				return IDENT;    }
+<ESC>.+	       return ESC_TEXT;
+<ESC>;	       { BEGIN(INITIAL); }
 
-[ \t]+		    ECHO;
+<ENG>{Ident}		{ yylval.wval = gc_wcsdup((wchar_t*)&yytext[0]);
+				BEGIN(ARG); return IDENT;    }
 
-[^a-zA-Z]{1,8}   return VTOK;
+<INITIAL>[ \t]+	ECHO;
+<ENG>[ \t]+	REJECT;
 
-[0-9a-zA-Z_/-]{1,255}	{ yylval.sval = gc_strdup(&yytext[0]);
-				return FILEPATH; }
+<MOD>[$]		return *yytext;
+<MOD>[^a-zA-Z]{1,8}   { BEGIN(INITIAL); return VTOK; }
 
-[^,]{1,2048}	  return ARGUMENT;
+<ENG>[0-9a-zA-Z_/-]{1,255}	{ yylval.sval = gc_strdup(&yytext[0]);
+					return FILEPATH; }
+<ARG>[^,^)^(^\n]+	{ yylval.wval = gc_wcsdup((wchar_t*)&yytext[0]);
+			return ARGUMENT; }
+	<ARG>[()]	return *yytext;
+<ARG>,		BEGIN(INB);
+<INB>[^)]	BEGIN(ARG);
+<INB>[)]	BEGIN(ENG);
 
-<<EOF>>		yyterminate();
+<INITIAL>.+		ECHO;
 
 %%
 
@@ -134,7 +147,7 @@ void yyerror(const char* err) {
 }
 
 int yywrap(void) {
-	if (input_idx == MAX_INPUT - 1 || !input_files[input_idx])
+	if (input_idx == MAX_INPUT - 1 || !input_files[input_idx + 1][0])
 		return 1;
 	else {
 		if (yyin) 
