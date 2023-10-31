@@ -17,10 +17,12 @@
 #define MAX_TOKEN  8
 
 extern FILE*   yyin;
+extern FILE*   yyout;
 extern FILE*   output;
 extern int     yyparse(void);
-extern void    yyreflect(char* line);
+extern void    yyreflect(wchar_t* line);
 extern char*   optarg;
+
 
 extern char    quote_left[MAX_TOKEN];
 extern char    quote_right[MAX_TOKEN];
@@ -28,11 +30,7 @@ extern char    comment_left[MAX_TOKEN];
 extern char    comment_right[MAX_TOKEN];
 extern char    delim_left[MAX_TOKEN];
 extern char    delim_right[MAX_TOKEN];
-extern char    argnum_sigil[MAX_TOKEN];
 extern char    engage_sigil[MAX_TOKEN];
-extern char    cond_sigil[MAX_TOKEN];
-extern char    search_sigil[MAX_TOKEN];
-extern char    aux_sigil[MAX_TOKEN];
 
 static void close_io(void) {
 	fflush(output);
@@ -48,6 +46,8 @@ void do_on_signal(int signum) {
 }
 
 static void on_startup(void) {
+	yyout = output;
+
 	atexit(do_on_exit);
 	atexit(close_io);
 
@@ -58,26 +58,26 @@ static void on_startup(void) {
 static void repl(void) {
 	char* line;
 	while ((line = readline(NULL)) != NULL) {
-		yyreflect(line);
+		yyreflect((wchar_t*)line);
 		free(line);
 	}
 }
 
 char**	sys_argv;
 int	sys_argc;
-char	input_path[FILENAME_MAX]  = {0};
 char	output_path[FILENAME_MAX] = {0};
+char    input_files[FILENAME_MAX][MAX_INPUT] = {0};
 
 
 static void hook_io(void) {
-	if (input_path[0] == 0 && isatty(STDIN_FILENO)) {
+	if (input_files[0][0] == 0 && isatty(STDIN_FILENO)) {
 		repl();
 		exit(EXIT_SUCCESS);
 	}
-	else if (input_path[0] == 0 && !isatty(STDIN_FILENO))
+	else if (input_files[0][0] == 0 && !isatty(STDIN_FILENO))
 		yyin = stdin;
 	else
-		yyin = fopen(&input_path[0], "r");
+		yyin = fopen(&input_files[0][0], "r");
 
 	if (output_path[0] == 0)
 		output = stdout;
@@ -85,17 +85,13 @@ static void hook_io(void) {
 		output = fopen(&output_path[0], "w");
 }
 
-#define LQUOTE_DFL 		"q//"
-#define RQUOTE_DFL 		"//q"
+#define LQUOTE_DFL 		"q/"
+#define RQUOTE_DFL 		"/"
 #define LCOMMENT_DFL		"/*"
 #define RCOMMENT_DFL		"*/"
 #define LDELIM_DFL		"<:?"
 #define RDELIM_DFL		":?>"
 #define ENGAGE_SIGIL_DFL	"#!"
-#define AUX_SIGIL_DFL		"#%"
-#define COND_SIGIL_DFL		"#?"
-#define ARGNUM_SIGIL_DFL	"##"
-#define SEARCH_SIGIL_DFL	"#&"
 
 
 static void set_default(void) {
@@ -131,27 +127,6 @@ static void set_default(void) {
 				? getenv("EKIPP_ENGAGE_SIGIL")
 				: ENGAGE_SIGIL_DFL);
 
-	set_token(&aux_sigil[0],
-			getenv("EKIPP_AUX_SIGIL")
-				? getenv("EKIPP_AUX_SIGIL")
-				: AUX_SIGIL_DFL);
-
-	set_token(&cond_sigil[0],
-			getenv("EKIPP_COND_SIGIL")
-				? getenv("EKIPP_COND_SIGIL")
-				: COND_SIGIL_DFL);
-
-	set_token(&argnum_sigil[0],
-			getenv("EKIPP_ARGNUM_SIGIL")
-				? getenv("EKIPP_ARGNUM_SIGIL")
-				: ARGNUM_SIGIL_DFL);
-
-	set_token(&search_sigil[0],
-			getenv("EKIPP_SEARCH_SIGIL")
-				? getenv("EKIPP_SEARCH_SIGIL")
-				: SEARCH_SIGIL_DFL);
-
-
 }
 
 static void parse_options(void) {
@@ -165,6 +140,7 @@ static void parse_options(void) {
 		[RIGHT]	= "r:",
 		NULL,
 	};
+	int inidx = 0;
 
 	while (true) {
 		static char* short_options = 
@@ -174,13 +150,9 @@ static void parse_options(void) {
 		char* tok;
 
 		static struct option long_options[] = {
-			{ "aux-sigil",    required_argument, 0, 'x'},
-			{ "search-sigil", required_argument, 0, 's'},
-			{ "cond-sigil",   required_argument, 0, 'c'},
-			{ "argnum-sigil", required_argument, 0, 'a'},
 			{ "engage-sigil", required_argument, 0, 'e'},
 			{ "delim-pair",   required_argument, 0, 'd'},
-			{ "komment-pair", required_argument, 0, 'k'},
+			{ "comment-pair", required_argument, 0, 'k'},
 			{ "quote-pair",   required_argument, 0, 'q'},
 			{ "input-script", required_argument, 0, 'f'},
 			{ "output-file",  required_argument, 0, 'o'},
@@ -201,22 +173,13 @@ static void parse_options(void) {
 			case 'e':
 				set_token(&engage_sigil[0], optarg);
 				break;
-			case 'a':
-				set_token(&argnum_sigil[0], optarg);
-				break;
-			case 'c':
-				set_token(&cond_sigil[0], optarg);
-				break;
-			case 's':
-				set_token(&search_sigil[0], optarg);
-				break;
-			case 'x':
-				set_token(&aux_sigil[0], optarg);
-				break;
 			case 'f':
-				strncpy(&input_path[0], 
-						optarg,
-						strlen(optarg));
+				optind--;
+				for (; optind < sys_argc 
+					  && *sys_argv[optind] != '-';
+					  optind++)
+					strcpy(&input_files[inidx++][0],
+						&sys_argv[optind][0]);
 				break;
 			case 'o':
 				strncpy(&output_path[0], 
