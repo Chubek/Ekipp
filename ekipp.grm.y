@@ -115,87 +115,87 @@ body : argn
      ;
 
 exit : ENGAGE_PREFIX
-         EXIT 		       { exit(EXIT_SUCCESS);		}
+         EXIT  ';'	       { exit(EXIT_SUCCESS);		}
      | ENGAGE_PREFIX
          EXIT '$'
-	  NUM		       { exit($<ival>4);		}
+	  NUM  ';'	       { exit($<ival>4);		}
      ;
 
 mode : ENGAGE_PREFIX
         MODE '$'
-	QUOTE 'l' VTOK         { set_token(&quote_left[0],
+	QUOTE 'l' VTOK ';'     { set_token(&quote_left[0],
 					$<sval>6);		}
      | ENGAGE_PREFIX
         MODE '$'
-	QUOTE 'r' VTOK	       { set_token(&quote_right[0],
+	QUOTE 'r' VTOK ';'    { set_token(&quote_right[0],
 	                                $<sval>6);		}
      | ENGAGE_PREFIX
         MODE '$'
-	COMMENT 'l' VTOK       { set_token(&comment_left[0],
+	COMMENT 'l' VTOK ';'  { set_token(&comment_left[0],
 	                                $<sval>6);		}
      | ENGAGE_PREFIX
         MODE '$' 
-	COMMENT 'r' VTOK       { set_token(&comment_right[0],
+	COMMENT 'r' VTOK ';'  { set_token(&comment_right[0],
 	                                $<sval>6);		}
      | ENGAGE_PREFIX
      	MODE '$'
-	DELIM 'l' VTOK	       { set_token(&delim_left[0],
+	DELIM 'l' VTOK ';'    { set_token(&delim_left[0],
 	                                $<sval>6);		}
      | ENGAGE_PREFIX
         MODE '$'
-	DELIM 'r' VTOK	       { set_token(&delim_right[0],
+	DELIM 'r' VTOK ';'    { set_token(&delim_right[0],
 	                                $<sval>6);		}
      | ENGAGE_PREFIX
        MODE '$'
-       ENGAGE '>' VTOK	       { set_token(&engage_sigil[0],
+       ENGAGE '>' VTOK ';'    { set_token(&engage_sigil[0],
         				$<sval>6);		}
      ;
 
-escp : '\\' ESC_TEXT	       { fputws($<wval>2, output);	}
+escp : '\\' ESC_TEXT	      { fputws($<wval>2, output);	}
      ;
 
-call : '$' IDENT args	       { invoke_macro($<wval>2);	}
+call : '$' IDENT args ';'     { invoke_macro($<wval>2);	}
      ;
 
 srch : ENGAGE_PREFIX
          SEARCH '$'
-	  FILEPATH	       { open_search_close($<sval>4);   }
+	  FILEPATH ';'	       { open_search_close($<sval>4);   }
      | ENGAGE_PREFIX
          SEARCH '$'
-	  CURRENT	       { yyin_search();			}
+	  CURRENT ';'	       { yyin_search();			}
      ;
 
 pops : ENGAGE_PREFIX
-         POP 		       { pop_stack();			}
+         POP  ';'	       { pop_stack();			}
      ;
 
 push : ENGAGE_PREFIX
          PUSH '$'
-	  IDENT body	       { push_stack($<wval>4, 
+	  IDENT body ';'       { push_stack($<wval>4, 
 	  				$<wval>5);		}
      ;
 
 udef : ENGAGE_PREFIX
            UNDEF '$'
-	   IDENT	       { remove_symbol($<wval>3);	}
+	   IDENT ';'          { remove_symbol($<wval>3);	}
      ;
 
 defn : ENGAGE_PREFIX
          DEFINE '$'
-	  IDENT body	       { insert_symbol($<wval>4,
+	  IDENT body ';'      { insert_symbol($<wval>4,
 	  					$<wval>5);      }
      ;
 
 prnf : ENGAGE_PREFIX
          PRINTF '$'
-	  QUOTED args	       { fmt = $<wval>4;
+	  QUOTED args  ';'    { fmt = $<wval>4;
 	  			 print_formatted();		}
      ;
 
 args : '(' argu ')';
 
 argu : ARGUMENT		       { invoke_addarg($<wval>1);       }
-     | argu ',' ARGUMENT       { invoke_addarg($<wval>3);	}
+     | argu ',' ARGUMENT ';'   { invoke_addarg($<wval>3);	}
      ;
 
 argn : '#' ARGNUM	       { invoke_printarg($<ival>2);	}
@@ -204,17 +204,17 @@ argn : '#' ARGNUM	       { invoke_printarg($<ival>2);	}
 
 prnt : ENGAGE_PREFIX
      	PRINT '$' ENVIRON 
-		QUOTED         { print_env($<sval>5);		}
+		QUOTED  ';'    { print_env($<sval>5);		}
      | ENGAGE_PREFIX
         PRINT '$' ARGV
-	        ARGNUM	       { print_argv($<ival>5);		}
+	        ARGNUM  ';'    { print_argv($<ival>5);		}
      ;
 
 trns : ENGAGE_PREFIX
         TRANSLIT '$'
 	QUOTED '>'
 	QUOTED '&'
-	QUOTED		       { aux_prim = $<wval>4;
+	QUOTED ';'	       { aux_prim = $<wval>4;
 				 aux_sec  = $<wval>6;
 				 aux_tert = $<wval>8;
 				 translit();			}
@@ -223,45 +223,45 @@ trns : ENGAGE_PREFIX
 offs : ENGAGE_PREFIX
         OFFSET '$'
 	QUOTED '?'
-	QUOTED		       { aux_prim = $<wval>4;
+	QUOTED ';'            { aux_prim = $<wval>4;
 				 aux_sec  = $<wval>6;
 				 offset();			}
      ;
 
 ldir : ENGAGE_PREFIX
         LSDIR '$'
-	FILEPATH	       { aux_prim = $<wval>4;
+	FILEPATH ';'          { aux_prim = $<wval>4;
 				 list_dir();			}
      ;
 
 date : ENGAGE_PREFIX
      	DATETIME '$'
-	QUOTED		       { aux_prim = $<wval>4;
+	QUOTED ';'            { aux_prim = $<wval>4;
 				 format_time();			}
      ;
 
 catf : ENGAGE_PREFIX
         CATFILE '$'
-	FILEPATH	       { aux_prim = $<wval>4;
+	FILEPATH ';'          { aux_prim = $<wval>4;
 				 cat_file();			}
      ;
 
 
 incl : ENGAGE_PREFIX
      	INCLUDE '$'
-	FILEPATH		{ aux_prim = $<wval>4;
+	FILEPATH ';'          { aux_prim = $<wval>4;
 				  cat_file();			}
      ;
 
 pdnl : ENGAGE_PREFIX
-     	DNL			{ dnl();			}
+     	DNL ';'			{ dnl();			}
      ;
 
 ifex : ENGAGE_PREFIX
      	QUOTED '$'
         QUOTED '?'
 	QUOTED ':'
-	QUOTED			{ exec_cmd      = $<sval>2;
+	QUOTED ';'		{ exec_cmd      = $<sval>2;
 				  exec_strcmp   = $<wval>4;
 				  exec_streq    = $<wval>6;
 				  exec_strne    = $<wval>8;
@@ -271,7 +271,7 @@ ifre : ENGAGE_PREFIX
      	REGEX 	'$' 
 	QUOTED  '?'
 	QUOTED	':'
-	QUOTED			{ reg_pattern    = $<sval>2;
+	QUOTED	';'		{ reg_pattern    = $<sval>2;
 				  reg_input      = $<sval>4;
 				  reg_matchmsg 	 = $<wval>6;
 				  reg_nomatchmsg = $<wval>8;
@@ -279,18 +279,20 @@ ifre : ENGAGE_PREFIX
      ;
 
 udvr : ENGAGE_PREFIX
-     	 UNDIVERT '>' DIVNUM	{ unset_divert($<ival>4);
+     	 UNDIVERT '>' 
+	 DIVNUM  ';'    	{ unset_divert($<ival>4);
 	 			  unswitch_output();		 }
      ;
 
 divr : ENGAGE_PREFIX
-         DIVERT '<' DIVNUM	{ set_divert($<ival>4);
+         DIVERT '<' 
+	 DIVNUM ';'	        { set_divert($<ival>4);
 	 			  switch_output(current_divert); }
      ;
 
 dlim : ENGAGE_PREFIX
 	EXEC '$' QUOTED
-	  '<' DELIMITED		{ delim_command = $<sval>4;
+	  '<' DELIMITED ';'    { delim_command = $<sval>4;
 	  			  init_delim_stream($<wval>6,
 	  				$<lenv>$);
 				  exec_delim_command();	         }
@@ -298,16 +300,18 @@ dlim : ENGAGE_PREFIX
 
 
 refl : ENGAGE_PREFIX
-        REFLECT '$' QUOTED	{ yyreflect($<wval>4);		 }
+        REFLECT '$' 
+	     QUOTED ';'	        { yyreflect($<wval>4);		 }
 
 
 exec : ENGAGE_PREFIX
-     	EXEC '$' QUOTED		{ exec_cmd = $<sval>4;
+     	EXEC '$' 
+	     QUOTED ';'		{ exec_cmd = $<sval>4;
 					exec_command();		 }
      ;
 
 eval : ENGAGE_PREFIX 
-        EVAL '$' expr		{ fprintf(output, 
+        EVAL '$' expr ';'	{ fprintf(output, 
 	 				"%ld", $<ival>4);	 }
      ;
 
