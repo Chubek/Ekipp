@@ -20,6 +20,7 @@ extern    char comment_fmt[MAX_FMT];
 
 fscanf(yyin, &comment_fmt[0], NULL);
 
+
 char*           str_ascii;
 wchar_t*        str_wide;
 char            token[MAX_TOKEN] = {0};
@@ -65,6 +66,5 @@ while ((token[token_ptr++] = fgetc(yyin)), token_ptr < MAX_TOKEN - 1) {
 
 while (--token_ptr) 
         ungetc(token[token_ptr], yyin);
-
 
 
