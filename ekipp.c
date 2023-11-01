@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -91,7 +92,9 @@ wchar_t* pop_stack(void) {
 }
 
 
-#define NUM_DIVERT 	32
+#define NUM_DIVERT 	10
+
+extern FILE*	yyout;
 
 FILE*		divert_streams[NUM_DIVERT];
 wchar_t*	divert_strings[NUM_DIVERT];
@@ -102,39 +105,43 @@ dev_t		null_dev;
 int		null_fd;
 FILE*		null_divert;
 int		current_divert_idx;
-FILE*		output;
 FILE*		hold;
 
-#define OUTPUT(ws) 		(fputws(ws, output))
+#define OUTPUT(ws) 		(fputws(ws, yyout))
 #define OUTPUT_DIVERT(ws) 	(fputws(ws, current_divert))
 
 #define MAJOR_NULL 1
-#define MINOR_NULL 3
+#define MINOR_NULL 5
 
 #define NULL_NAME "ekippnull"
+#define NULL_LEN  16
 
 void open_null_file(void) {
+	char nullname[NULL_LEN] = {0};
+	strncpy(&nullname[0], NULL_NAME, NULL_LEN);
+	strfry(&nullname[0]);
 	tmp_dir = opendir(P_tmpdir);
 	null_dev = makedev(MAJOR_NULL, MINOR_NULL);
 	if ((null_fd = mknodat(dirfd(tmp_dir), 
-					NULL_NAME, 
-					S_IWUSR | S_IFCHR, 
-					null_dev) < 0)) {
+					&nullname[0], 
+					S_IWUSR | S_IFREG,
+					null_dev)) < 0) {
 		EEXIT(ERR_OPEN_NULL, ECODE_OPEN_NULL);
 	}
 	null_divert = fdopen(null_fd, "w");
 }
 
 void destroy_null_divert(void) {
-	if (null_divert) {
+	if (null_divert != NULL) {
 		fclose(null_divert);
 		close(null_fd);
 		closedir(tmp_dir);
+		null_divert = NULL;
 	}
 }
 
 void set_divert(int n) {
-	if (n > NUM_DIVERT) {
+	if (n >= NUM_DIVERT) {
 		EEXIT(ERR_NUM_DIVERT, ECODE_NUM_DIVERT);
 	}
 	else if (n < 0) {
@@ -155,35 +162,41 @@ void set_divert(int n) {
 
 void unset_divert(int n) {
 	if (n < 0) {
-		EEXIT(ERR_UNSET_NULLDIV, ECODE_UNSET_NULLDIV);
+		destroy_null_divert();
 	} else if (n >= NUM_DIVERT) {
 		EEXIT(ERR_NUM_DIVERT, ECODE_NUM_DIVERT);
-	} else {
-		fwrite(divert_strings[n], divert_lengths[n], 1, output);
+	} else if (divert_strings[n] != NULL) {
+		fflush(divert_streams[n]);
+		fwrite(divert_strings[n], divert_lengths[n], 
+				sizeof(wchar_t), yyout);
 		free(divert_strings[n]);
-		fclose(divert_streams[n]);
+		divert_strings[n] = NULL;
 	}
 }
 
 void free_set_diverts(void) {
 	int i = NUM_DIVERT;
 	while (--i) {
-		if (divert_streams[i]) {
-			OUTPUT(divert_strings[i]);
-			free(divert_strings[i]);
-			fclose(divert_streams[i]);
+		if (divert_streams[i] != NULL) {
+			if (divert_strings[i] != NULL) {
+				OUTPUT(divert_strings[i]);
+				free(divert_strings[i]);
+			}
 		}
 	}
 	destroy_null_divert();
 }
 
+void init_hold(void) {
+	hold = yyout;
+}
+
 void switch_output(FILE* stream) {
-	hold 	= output;
-	output  = stream;
+	yyout   = stream;
 }
 
 void unswitch_output(void) {
-	output	= hold;
+	yyout	= hold;
 }
 
 #define NMATCH		1
@@ -486,7 +499,7 @@ void print_formatted(void) {
 		if (wc == L'%' && *fmt != L'%') {
 			f[0] = L'%';
 			f[1] = *fmt++;
-			fwprintf(output, &f[0], invoke_argv[i++]);
+			fwprintf(yyout, &f[0], invoke_argv[i++]);
 		}
 	}
 
@@ -496,7 +509,7 @@ void print_formatted(void) {
 void print_env(char* key) {
 	char* var;
 	if ((var = getenv(key)) != NULL)
-		fputs(var, output);
+		fputs(var, yyout);
 	free(key);
 }
 
@@ -505,7 +518,7 @@ extern int    sys_argc;
 
 void print_argv(int n) {
 	if (sys_argc < n) {
-		fputs(sys_argv[n], output);
+		fputs(sys_argv[n], yyout);
 	}
 }
 
@@ -530,11 +543,11 @@ void translit(void) {
 	while ((wc = *INPUT++)) {
 		if ((wcp = wcschr(SRCMAP, wc), offs = wcp - SRCMAP)) {
 			if (offs < lendst)
-				fputwc(DSTMAP[offs], output);
+				fputwc(DSTMAP[offs], yyout);
 			else
 				break;
 		} else
-			fputwc(wc, output);
+			fputwc(wc, yyout);
 	}
 	OUTPUT(&INPUT[++offs]);
 
@@ -547,7 +560,7 @@ void offset(void) {
 	#define INPUT		aux_prim
 	#define SUB		aux_sec
 
-	fwprintf(output, L"%lp", wcsstr(INPUT, SUB) - INPUT);
+	fwprintf(yyout, L"%lp", wcsstr(INPUT, SUB) - INPUT);
 
 	#undef INPUT
 	#undef SUB
@@ -565,7 +578,7 @@ void list_dir(void) {
 	int i = 0;
 
 	while ((entry = readdir(stream)) != NULL) {
-		fprintf(output, 
+		fprintf(yyout, 
 				"%d -- %s\n", 
 				++i,
 				&entry->d_name[0]
@@ -629,7 +642,7 @@ void format_time(void) {
 		EEXIT(ERR_FORMAT_TIME, ECODE_FORMAT_TIME);
 	}
 
-	fputs(&out_time[0], output);
+	fputs(&out_time[0], yyout);
 
 	#undef FMT
 }
@@ -642,16 +655,26 @@ void do_on_exit(void) {
 	free_set_diverts();
 }
 
-wchar_t* gc_wcsdup(wchar_t* wcs) {
-	size_t 		len = wcslen(wcs);
+mbstate_t mbs;
+wchar_t*  wcs;
+
+wchar_t* gc_wcsdup(wchar_t* ws) {
+	size_t		len = wcslen(ws);
+	wchar_t*	wsc = GC_MALLOC(sizeof(wchar_t) * len);
+	return memmove(&wsc[0], &ws[0], len * sizeof(wchar_t));
+}
+
+wchar_t* gc_mbsdup(char* s) {
+	size_t len 	    = strlen(s);
+	mbrtowc(wcs, s, len, &mbs);
 	wchar_t*	wsc = GC_MALLOC(sizeof(wchar_t) * len);
 	return memmove(&wsc[0], &wcs[0], len * sizeof(wchar_t));
 }
 
-char* gc_strdup(char* wcs) {
-	size_t 		len = strlen(wcs);
+char* gc_strdup(char* s) {
+	size_t 		len = strlen(s);
 	char*		wsc = GC_MALLOC(len);
-	return memmove(&wsc[0], &wcs[0], len);
+	return memmove(&wsc[0], &s[0], len);
 }
 
 
