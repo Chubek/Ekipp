@@ -1,0 +1,10 @@
+A text that should not trigger anything
+#! divert $ -1
+This will be directed to a NULL-like device
+This will be printed to output
+#! undivert $ -1
+#! divert $ 1
+This will be diverted
+#! undivert $ 1
+
+End

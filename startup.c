@@ -18,7 +18,6 @@
 
 extern FILE*   yyin;
 extern FILE*   yyout;
-extern FILE*   output;
 extern int     yyparse(void);
 extern void    yyreflect(wchar_t* line);
 extern char*   optarg;
@@ -33,9 +32,9 @@ extern char    delim_right[MAX_TOKEN];
 extern char    engage_sigil[MAX_TOKEN];
 
 static void close_io(void) {
-	fflush(output);
+	fflush(yyout);
 	fclose(yyin);
-	fclose(output);
+	fclose(yyout);
 }
 
 void do_on_signal(int signum) {
@@ -46,8 +45,6 @@ void do_on_signal(int signum) {
 }
 
 static void on_startup(void) {
-	yyout = output;
-
 	atexit(do_on_exit);
 	atexit(close_io);
 
@@ -65,7 +62,7 @@ static void repl(void) {
 
 char**	sys_argv;
 int	sys_argc;
-char	output_path[FILENAME_MAX] = {0};
+char	yyout_path[FILENAME_MAX] = {0};
 char    input_files[FILENAME_MAX][MAX_INPUT] = {0};
 
 
@@ -79,10 +76,10 @@ static void hook_io(void) {
 	else
 		yyin = fopen(&input_files[0][0], "r");
 
-	if (output_path[0] == 0)
-		output = stdout;
+	if (yyout_path[0] == 0)
+		yyout = stdout;
 	else
-		output = fopen(&output_path[0], "w");
+		yyout = fopen(&yyout_path[0], "w");
 }
 
 #define LQUOTE_DFL 		"q/"
@@ -155,7 +152,7 @@ static void parse_options(void) {
 			{ "comment-pair", required_argument, 0, 'k'},
 			{ "quote-pair",   required_argument, 0, 'q'},
 			{ "input-script", required_argument, 0, 'f'},
-			{ "output-file",  required_argument, 0, 'o'},
+			{ "yyout-file",  required_argument, 0, 'o'},
 			{ "help",	  no_argument,       0, 'h'},
 			{ 0,              0,                 0,  0 }
 
@@ -182,7 +179,7 @@ static void parse_options(void) {
 						&sys_argv[optind][0]);
 				break;
 			case 'o':
-				strncpy(&output_path[0], 
+				strncpy(&yyout_path[0], 
 						optarg,
 						strlen(optarg));
 				break;
@@ -227,6 +224,7 @@ int main(int argc, char** argv) {
 	set_default();
 	parse_options();
 	hook_io();
+	init_hold();
 	on_startup();
 
 	if (yyparse())

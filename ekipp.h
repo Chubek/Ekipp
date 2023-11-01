@@ -56,7 +56,9 @@ void include_file(void);
 void format_time(void); 
 void dnl(void);
 void do_on_exit(void);
-wchar_t* gc_wcsdup(wchar_t* wcs);
-char*	 gc_strdup(char* wcs);
+wchar_t* gc_wcsdup(wchar_t* s);
+wchar_t* gc_mbsdup(char* s);
+char*	 gc_strdup(char* s);
+void init_hold(void);
 
 #endif
