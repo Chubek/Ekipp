@@ -164,9 +164,8 @@ void unset_divert(int n) {
 	if (n < 0) {
 		destroy_null_divert();
 	} else if (n >= NUM_DIVERT) {
-		EEXIT(ERR_NUM_DIVERT, ECODE_NUM_DIVERT);
+		EEXIT(ERR_NUM_DIVERT, ECODE_NUM_DIVERT);	
 	} else if (divert_strings[n] != NULL) {
-		fflush(divert_streams[n]);
 		fwrite(divert_strings[n], divert_lengths[n], 
 				sizeof(wchar_t), yyout);
 		free(divert_strings[n]);
@@ -196,6 +195,7 @@ void switch_output(FILE* stream) {
 }
 
 void unswitch_output(void) {
+	fflush(yyout);
 	yyout	= hold;
 }
 
