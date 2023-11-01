@@ -271,57 +271,48 @@ wchar_t*	exec_strcmp;
 wchar_t*   	exec_strne;
 wchar_t*	exec_streq;
 
+#define BUFLEN 1024
+
 void ifelse_execmatch(void) {
-	FILE* pipe;
+	FILE* stream;
 	FLUSH_STDIO();
-	if (!(pipe = popen(exec_cmd, "r"))) {
-		EEXIT(ERR_EXEC_SHELL, ECODE_EXEC_SHELL);
+	if (!(stream = popen(exec_cmd, "r"))) {
+		EEXIT(ERR_EXEC_CMD, ECODE_EXEC_CMD);
+	}
+	FLUSH_STDIO();
+	fflush(stream);
+
+	char*   line;
+	ssize_t reads;
+	size_t  readn;
+	while ((reads = getline(&line, &readn, stream)) > 0) {
+		fputs(line, yyout);
+		free(line);
 	}
 
-	fseek(pipe, 0, SEEK_END);
-	long len = ftell(pipe);
-	if (len < 0) {
-		OUTPUT(exec_strne);
-		return;
-	}
-
-	rewind(pipe);
-
-	wchar_t* readtxt = calloc(len, sizeof(wchar_t));
-	fread(&readtxt[0], len, sizeof(wchar_t), pipe);
-	(!wcsncmp(&readtxt[0], exec_strcmp, len))
-		? OUTPUT(exec_streq)
-		: OUTPUT(exec_strne);
-	free(readtxt);
-	pclose(pipe);
+	pclose(stream);
 }
+
 
 void exec_command(void) {
 	FILE* stream = popen(exec_cmd, "r");
+	FLUSH_STDIO();
 	if (!stream) {
 		EEXIT(ERR_EXEC_CMD, ECODE_EXEC_CMD);	
 	}
 
-	if (fseek(stream, 0, SEEK_END) < 0) {
-		EEXIT(ERR_EXEC_READ, ECODE_EXEC_READ);
+	FLUSH_STDIO();
+	fflush(stream);
+	
+	char*   line;
+	ssize_t reads;
+	size_t  readn;
+	while ((reads = getline(&line, &readn, stream)) > 0) {
+		fputs(line, yyout);
+		free(line);
 	}
 
-	long len;
-	if ((len = ftell(stream))) {
-		EEXIT(ERR_EXEC_READ, ECODE_EXEC_READ);
-	}
-
-	rewind(stream);
-
-	wchar_t* text = calloc(len, sizeof(wchar_t));
-	if (fread(text, len, sizeof(wchar_t), stream) < 0) {
-		EEXIT(ERR_EXEC_READ, ECODE_EXEC_READ);
-	}
-
-	OUTPUT(text);
-	free(text);
 	pclose(stream);
-	free(exec_cmd);
 }
 
 FILE*		delim_stream;
@@ -329,11 +320,17 @@ char		delim_fpath[FILENAME_MAX];
 char*		delim_command;	
 
 #define OUTPUT_DELIM(ws) (fputws(ws, delim_stream))
+#define XNAME_MAX 	 8
+
+#ifdef __unix__
+#define TMP_FMT "%s/XXXXXXX_DELIM_TMP_EKIPP"
+#else
+#define TMP_FMT "%s\\XXXXXX_DELIM_TMP_EKIPP"
+#endif
 
 void init_delim_stream(wchar_t* text, size_t len) {
 	memset(&delim_fpath[0], 0, FILENAME_MAX);
-	delim_fpath[0] = 'X'; delim_fpath[1] = 'X'; delim_fpath[2] = 'X';
-	delim_fpath[3] = 'X'; delim_fpath[4] = 'X'; delim_fpath[5] = 'E';
+	sprintf(&delim_fpath[0], TMP_FMT, P_tmpdir);
 	if (mkstemp(&delim_fpath[0]) < 0) {
 		EEXIT(ERR_DELIM_FPATH, ECODE_DELIM_FPATH);
 	}
@@ -354,23 +351,21 @@ void exec_delim_command(void) {
 		EEXIT(ERR_DELIM_REOPEN, ECODE_DELIM_REOPEN);
 	}
 
-	FILE* pipe = popen(delim_command, "r");
+	FILE* stream = popen(delim_command, "r");
 
-	fseek(pipe, 0, SEEK_END);
-	long len = ftell(pipe);
+	FLUSH_STDIO();
+	fflush(stream);
 
-	if (len < 0) {
-		return;	
+	char*   line;
+	ssize_t reads;
+	size_t  readn;
+	while ((reads = getline(&line, &readn, stream)) > 0) {
+		fputs(line, yyout);
+		free(line);
 	}
 
-	rewind(pipe);
+	pclose(stream);
 
-	wchar_t* readtxt = calloc(len, sizeof(wchar_t));
-	fread(&readtxt[0], len, sizeof(wchar_t), pipe);
-	OUTPUT(readtxt);
-	free(readtxt);
-	pclose(pipe);
-	fclose(delim_stream);
 }
 #define MAX_TOKEN	8
 #define REGISTRY_SIZE	65536
@@ -659,20 +654,22 @@ mbstate_t mbs;
 wchar_t*  wcs;
 
 wchar_t* gc_wcsdup(wchar_t* ws) {
-	size_t		len = wcslen(ws);
+	size_t		len = wcslen(ws) + 1;
 	wchar_t*	wsc = GC_MALLOC(sizeof(wchar_t) * len);
 	return memmove(&wsc[0], &ws[0], len * sizeof(wchar_t));
 }
 
 wchar_t* gc_mbsdup(char* s) {
-	size_t len 	    = strlen(s);
-	mbrtowc(wcs, s, len, &mbs);
+	memset(&mbs, 0, sizeof(mbstate_t));
+	size_t len 	    = strlen(s) + 1;
+	wchar_t*	wcs = GC_MALLOC(sizeof(wchar_t) * len);
 	wchar_t*	wsc = GC_MALLOC(sizeof(wchar_t) * len);
+	mbrtowc(wcs, s, len, &mbs);
 	return memmove(&wsc[0], &wcs[0], len * sizeof(wchar_t));
 }
 
 char* gc_strdup(char* s) {
-	size_t 		len = strlen(s);
+	size_t 		len = strlen(s) + 1;
 	char*		wsc = GC_MALLOC(len);
 	return memmove(&wsc[0], &s[0], len);
 }
