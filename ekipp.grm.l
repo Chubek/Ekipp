@@ -11,13 +11,13 @@
 int 		yylex(void);
 int		yywrap(void);
 void		yyerror(const char* err);
+FILE*		yyout;
 FILE*		yyin;
 
 extern char	input_files[FILENAME_MAX][MAX_INPUT];
 static int	input_idx = 0;
 
-extern FILE*	output;
-extern wchar_t* gc_wcsdup(wchar_t*);
+extern wchar_t* gc_mbsdup(char*);
 extern char*	gc_strdup(char*);
 
 #include "ekipp.h"
@@ -35,15 +35,40 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 %x REG
 %x ARG
 %x INB
-%x MOD
 %x EVL
+%x DLM
+%x QUO
+%x COM
+%x PTH
 %%
-	#include "yylex.i"
+	fflush(yyout);
+<*>\/\*	        BEGIN(COM);
+<ENG>::	        BEGIN(PTH);
+<INITIAL>^"#! "  { BEGIN(ENG); return ENGAGE_PREFIX; }
+<ENG,EVL>[\n]+   { BEGIN(INITIAL); return *yytext;  }
 
-<INITIAL>[ \t]	    		   ECHO;
-<ESC,ENG,REG,ARG,INB,MOD,EVL>[ \t] {};
+<ENG><?!       BEGIN(DLM);
+<ENG>`	       BEGIN(QUO);
+<ENG>[$<>?:()] return *yytext;
+
+
+<COM>[^\*\/]  REJECT;
+<COM>\*\/     BEGIN(INITIAL);
+
+<DLM>.+	     { yylval.wval = gc_mbsdup(&yytext[0]);  }
+<DLM>\?!>    { BEGIN(INITIAL); return DELIMITED;     }
+
+<QUO>[^`]+  { yylval.wval = gc_mbsdup(&yytext[0]);
+	      yylval.sval = gc_strdup(&yytext[0]);   }
+<QUO>`	    { BEGIN(INITIAL); return QUOTED;	     }
+
+<EVL,ENG>[$]  return *yytext;
+<EVL>[\*\+\-\%]   return *yytext;
+
+<INITIAL>[ \t]	  ECHO;
+<ESC,ENG,REG,ARG,INB,EVL>[ \t] {};
 <*><<EOF>>	  { yyterminate();   }
-<EVL,ENG,MOD>[;]  { BEGIN(INITIAL); return *yytext;  }
+
 
 <EVL>{Decimal}	 { yylval.ival = strtoll(yytext, NULL, 10); 
 				return NUM;    }
@@ -53,15 +78,12 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 				return NUM;    }
 <EVL>{Binary}	 { yylval.ival = strtoll(&yytext[2], NULL, 2); 
 				return NUM;    }
-<ENG>[0-9]	 { yylval.ival = atoi(&yytext[5]); 
+<ENG>[\-]?[0-9]	 { yylval.ival = atoi(&yytext[0]); 
 				return DIVNUM; }
-<ENG>[0-9]+      { yylval.ival = atoi(&yytext[5]); 
+<ENG>[0-9]+      { yylval.ival = atoi(&yytext[0]); 
 				return ARGNUM; }
-<ENG>engage	return ENGAGE;
-<ENG>dnl	return DNL;
-<ENG>delim	return DELIM;
-<ENG>comment	return COMMENT;
-<ENG>quote	return QUOTE;
+<INITIAL>.   ECHO;
+\n	     ECHO;
 
 <ENG>lsdir	return LSDIR;
 <ENG>translit	return TRANSLIT;
@@ -88,7 +110,6 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 <ENG>error	return ERROR;
 <ENG>print	return PRINT;
 <ENG>printf	return PRINTF;
-<ENG>mode	{ BEGIN(MOD); return MODE; }
 <ENG>argv	return ARGV;
 
 <ENG>include	return INCLUDE;
@@ -103,41 +124,30 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 <EVL>\+\+	return INCR;
 <EVL>\-\-	return DECR;
 
-<EVL>[\*\+\-\%$]  return *yytext;
 
-[\r\n]+		ECHO;
+<INITIAL,ENG>[/]  { BEGIN(REG); }
 
-<ENG>[$<>?:()]   return *yytext;
-<ENG>[\n\r]	 { ECHO; BEGIN(INITIAL); }
-
-
-<INITIAL,ENG>[/]	{ BEGIN(REG); }
-
-<INITIAL,ENG>\\ 	{ BEGIN(ESC); }
+<INITIAL,ENG>\\   { BEGIN(ESC); }
 
 <REG>[^\/]+	{ yylval.sval = &yytext[0]; return REGEX; }
-<REG>[\/]	    { BEGIN(INITIAL); }
+<REG>[\/]	{ BEGIN(INITIAL); }
 
-<ESC>.+	       return ESC_TEXT;
-<ESC>[\n\r]+   { BEGIN(INITIAL); }
+<ESC>.+	      	   return ESC_TEXT;
+<ESC>[\n\r]{2}   { BEGIN(INITIAL); }
 
-<ENG>{Ident}		{ yylval.wval = gc_wcsdup((wchar_t*)&yytext[0]);
+<ENG>{Ident}		{ yylval.wval = gc_mbsdup(&yytext[0]);
 				BEGIN(ARG); return IDENT;    }
 
-<MOD>[$]		return *yytext;
-<MOD>[^a-zA-Z]{1,8}   { BEGIN(INITIAL); return VTOK; }
 
-<ENG>[0-9a-zA-Z_/-]{1,255}	{ yylval.sval = gc_strdup(&yytext[0]);
-					return FILEPATH; }
-<ARG>[^,^)^(^\n]+	{ yylval.wval = gc_wcsdup((wchar_t*)&yytext[0]);
+<PTH>[0-9a-zA-Z_/-]{1,255} { yylval.sval = gc_strdup(&yytext[0]); }
+<PTH>::		       	   { BEGIN(INITIAL); return FILEPATH;     }	
+
+<ARG>[^,^)^(^\n]+     { yylval.wval = gc_mbsdup(&yytext[0]);
 					return ARGUMENT; }
 <ARG>[()]	return *yytext;
 <ARG>,		BEGIN(INB);
 <INB>[^)]	BEGIN(ARG);
 <INB>[)]	BEGIN(ENG);
-
-<INITIAL>.+	ECHO;
-<INITIAL>[\n]	ECHO;
 %%
 
 void yyerror(const char* err) {
