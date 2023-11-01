@@ -15,7 +15,7 @@ yy.tab.h: lex.yy.c
 	yacc -b yy -d ekipp.grm.y
 
 lex.yy.c: clean
-	lex --debug ekipp.grm.l
+	lex ekipp.grm.l
 
 .PHONY : clean
 clean: $(FILES)
