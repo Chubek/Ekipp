@@ -40,17 +40,22 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 %x QUO
 %x COM
 %x PTH
+%s DIV1
+%s DIV2
 %%
 	fflush(yyout);
-<*>\/\*	        BEGIN(COM);
-<ENG>::	        BEGIN(PTH);
-<INITIAL>^"#! "  { BEGIN(ENG); return ENGAGE_PREFIX; }
-<ENG,EVL>[\n]+   { BEGIN(INITIAL); return *yytext;  }
+<*>\/\*	               BEGIN(COM);
+<ENG>::	               BEGIN(PTH);
+<DIV1>[$]	       return *yytext;
+<DIV1>[\n]           { BEGIN(DIV2); return *yytext; }
+<INITIAL,DIV2>^"#! " { BEGIN(ENG); return ENGAGE_PREFIX; }
+<ENG,EVL>[\n]+       { BEGIN(INITIAL); return *yytext;   }
 
 <ENG><?!       BEGIN(DLM);
 <ENG>`	       BEGIN(QUO);
 <ENG>[$<>?:()] return *yytext;
 
+<*><<EOF>>	  { yyterminate();   }
 
 <COM>[^\*\/]  REJECT;
 <COM>\*\/     BEGIN(INITIAL);
@@ -62,13 +67,14 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 	      yylval.sval = gc_strdup(&yytext[0]);   }
 <QUO>`	    { BEGIN(INITIAL); return QUOTED;	     }
 
-<EVL,ENG>[$]  return *yytext;
+<DIV2>.   { fputc(*yytext, yyout); }
+<DIV2>\n  { fputc(*yytext, yyout); }
+
+<EVL,ENG>[$]      return *yytext;
 <EVL>[\*\+\-\%]   return *yytext;
 
 <INITIAL>[ \t]	  ECHO;
-<ESC,ENG,REG,ARG,INB,EVL>[ \t] {};
-<*><<EOF>>	  { yyterminate();   }
-
+<ESC,DIV1,ENG,REG,ARG,INB,EVL>[ \t] {};
 
 <EVL>{Decimal}	 { yylval.ival = strtoll(yytext, NULL, 10); 
 				return NUM;    }
@@ -78,12 +84,13 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 				return NUM;    }
 <EVL>{Binary}	 { yylval.ival = strtoll(&yytext[2], NULL, 2); 
 				return NUM;    }
-<ENG>[\-]?[0-9]	 { yylval.ival = atoi(&yytext[0]); 
+<DIV1>[\-]?[0-9] { yylval.ival = atoi(&yytext[0]); 
 				return DIVNUM; }
 <ENG>[0-9]+      { yylval.ival = atoi(&yytext[0]); 
 				return ARGNUM; }
-<INITIAL>.   ECHO;
-\n	     ECHO;
+<INITIAL>. ECHO;
+
+\n	   ECHO;
 
 <ENG>lsdir	return LSDIR;
 <ENG>translit	return TRANSLIT;
@@ -91,11 +98,11 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 <ENG>offset	return OFFSET;
 <ENG>datetime	return DATETIME;
 
-<ENG>divert	return DIVERT;
-<ENG>undivert	return UNDIVERT;
+<ENG>divert     { BEGIN(DIV1); return DIVERT;   }
+<ENG>undivert	{ BEGIN(DIV1); return UNDIVERT; }
 
 <ENG>exec	return EXEC;
-<ENG>eval	{ BEGIN(EVL); return EVAL; }
+<ENG>eval	{ BEGIN(EVL); return EVAL;   }
 
 <ENG>push	return PUSH;
 <ENG>pop	return POP;
