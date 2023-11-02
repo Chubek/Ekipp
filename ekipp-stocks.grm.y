@@ -42,10 +42,6 @@ extern  wchar_t*  reg_nomatchmsg;
 extern 	char*	  delim_command;
 extern  FILE*	  current_divert;
 
-void 	yyinvoke(wchar_t* code);
-void	yyreflect(wchar_t* line);
-int	yyparse(void);
-bool  	yyexpand = false;
 %}
 
 %define parse.error verbose
@@ -54,11 +50,9 @@ bool  	yyexpand = false;
 %token TRANSLIT LSDIR CATFILE DATETIME OFFSET INCLUDE
 %token EXEC EVAL REFLECT DNL LF EXEC_DELIM
 %token DIVERT UNDIVERT
-%token PUSH POP
-%token DEFINE UNDEF
 %token EXIT ERROR PRINT PRINTF ENVIRON FILEPATH SEARCH ARGV CURRENT
 %token GE LE EQ NE SHR SHL POW INCR DECR
-%token DIVNUM ARGNUM NUM IDENT ARGUMENT
+%token DIVNUM ARGNUM NUM
 
 %left  '*' '/' '%' POW
 %left  '+' '-'
@@ -83,14 +77,8 @@ prep :
 
 main : exit
      | escp
-     | call
      | srch
-     | pops
-     | push
-     | udef
-     | defn
      | prnf
-     | args
      | argu
      | prnt
      | trns
@@ -111,10 +99,6 @@ main : exit
      | '\n'
      ;
 
-body : argn
-     | main
-     ;
-
 exit : ENGAGE_PREFIX
          EXIT  '\n'	       { exit(EXIT_SUCCESS);		}
      | ENGAGE_PREFIX
@@ -125,9 +109,6 @@ exit : ENGAGE_PREFIX
 escp : '\\' ESC_TEXT	      { fputws($<wval>2, yyout);	}
      ;
 
-call : '$' IDENT args 	      { invoke_macro($<wval>2);	}
-     ;
-
 srch : ENGAGE_PREFIX
          SEARCH '$'
 	  FILEPATH '\n'     { open_search_close($<sval>4);   }
@@ -136,43 +117,11 @@ srch : ENGAGE_PREFIX
 	  CURRENT '\n'      { yyin_search();			}
      ;
 
-pops : ENGAGE_PREFIX
-         POP  '\n'	       { pop_stack();			}
-     ;
-
-push : ENGAGE_PREFIX
-         PUSH '$'
-	  IDENT body '\n'       { push_stack($<wval>4, 
-	  				$<wval>5);		}
-     ;
-
-udef : ENGAGE_PREFIX
-           UNDEF '$'
-	   IDENT '\n'          { remove_symbol($<wval>3);	}
-     ;
-
-defn : ENGAGE_PREFIX
-         DEFINE '$'
-	  IDENT body '\n'      { insert_symbol($<wval>4,
-	  					$<wval>5);      }
-     ;
-
 prnf : ENGAGE_PREFIX
          PRINTF '$'
 	  QUOTED args  '\n'    { fmt = $<wval>4;
 	  			 print_formatted();		}
      ;
-
-args : '(' argu ')';
-
-argu : ARGUMENT		       { invoke_addarg($<wval>1);       }
-     | argu ',' ARGUMENT '\n'   { invoke_addarg($<wval>3);	}
-     ;
-
-argn : '#' ARGNUM	       { invoke_printarg($<ival>2);	}
-     | '#' QUOTED	       { invoke_printargs($<wval>2);    }
-     ;
-
 prnt : ENGAGE_PREFIX
      	PRINT '$' ENVIRON 
 		QUOTED  '\n'    { print_env($<sval>5);		}
@@ -225,7 +174,7 @@ incl : ENGAGE_PREFIX
      ;
 
 pdnl : ENGAGE_PREFIX
-     	DNL '\n'			{ dnl();			}
+     	DNL '\n'	       { dnl();			       } 
      ;
 
 ifex : ENGAGE_PREFIX
@@ -307,21 +256,3 @@ expr : expr '+' NUM		{ $$ = $<ival>1 + $<ival>3;      }
      | NUM			{ $$ = $<ival>1;	         }
      ;
 %%
-
-void yyinvoke(wchar_t*	code) {
-	FILE* yyinhold 	= yyin;
-	yyin 	 	= fmemopen(code, wcslen(code), "r");
-	yyexpand 	= true;
-	yyparse();
-	fclose(yyin);
-	yyin 		= yyinhold;
-	yyexpand 	= false;
-}
-
-void yyreflect(wchar_t* line) {
-	yyin 		= fmemopen(line, wcslen(line), "r");
-	yyout		= stdout;
-	yyparse();
-	fclose(yyin);
-	fflush(stdout);
-}
