@@ -17,8 +17,6 @@ FILE*		yyin;
 extern char	input_files[FILENAME_MAX][MAX_INPUT];
 static int	input_idx = 0;
 
-extern wchar_t* gc_mbsdup(char*);
-extern char*	gc_strdup(char*);
 
 #include "ekipp.h"
 #include "yy.tab.h"

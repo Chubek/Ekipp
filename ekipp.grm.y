@@ -264,8 +264,7 @@ divr : ENGAGE_PREFIX
 dlim : ENGAGE_PREFIX
 	EXEC_DELIM '$' QUOTED
 	  '|' DELIMITED '\n'    { delim_command = $<sval>4;
-	  			  init_delim_stream($<wval>6,
-	  				$<lenv>$);
+	  			  init_delim_stream($<wval>6);
 				  exec_delim_command();	         }
      ;
 
