@@ -282,13 +282,11 @@ void ifelse_execmatch(void) {
 	FLUSH_STDIO();
 	fflush(stream);
 
-	char*   line;
+	char*   line = GC_MALLOC(LINE_MAX);
 	ssize_t reads;
 	size_t  readn;
-	while ((reads = getline(&line, &readn, stream)) > 0) {
+	while ((reads = getline(&line, &readn, stream)) > 0)
 		fputs(line, yyout);
-		free(line);
-	}
 
 	pclose(stream);
 }
@@ -304,66 +302,66 @@ void exec_command(void) {
 	FLUSH_STDIO();
 	fflush(stream);
 	
-	char*   line;
+	char*   line = GC_MALLOC(LINE_MAX);
 	ssize_t reads;
 	size_t  readn;
-	while ((reads = getline(&line, &readn, stream)) > 0) {
+	while ((reads = getline(&line, &readn, stream)) > 0)
 		fputs(line, yyout);
-		free(line);
-	}
 
 	pclose(stream);
 }
-
-FILE*		delim_stream;
-char		delim_fpath[FILENAME_MAX];
-char*		delim_command;	
 
 #define OUTPUT_DELIM(ws) (fputws(ws, delim_stream))
 #define XNAME_MAX 	 8
 
 #ifdef __unix__
-#define TMP_FMT "%s/XXXXXXX_DELIM_TMP_EKIPP"
+#define TMP_FMT "%s/%s"
 #else
-#define TMP_FMT "%s\\XXXXXX_DELIM_TMP_EKIPP"
+#define TMP_FMT "%s\\%s"
 #endif
 
-void init_delim_stream(wchar_t* text, size_t len) {
-	memset(&delim_fpath[0], 0, FILENAME_MAX);
-	sprintf(&delim_fpath[0], TMP_FMT, P_tmpdir);
+FILE*		delim_hold;
+FILE*		delim_stream;
+char		delim_fpath[XNAME_MAX + 1];
+char		delim_rpath[FILENAME_MAX];
+char*		delim_command;	
+
+
+void init_delim_stream(wchar_t* text) {
+	memset(&delim_fpath[0], 'X', XNAME_MAX);
 	if (mkstemp(&delim_fpath[0]) < 0) {
 		EEXIT(ERR_DELIM_FPATH, ECODE_DELIM_FPATH);
 	}
 
-	if (!(delim_stream = fopen(&delim_fpath[0], "w"))) {
+	sprintf(&delim_rpath[0], TMP_FMT, P_tmpdir, &delim_fpath[0]);
+
+	if (!(delim_stream = fopen(&delim_rpath[0], "w"))) {
 		EEXIT(ERR_DELIM_OPEN, ECODE_DELIM_OPEN);
 	}
 
-	if (fwrite(text, len, sizeof(wchar_t), delim_stream) < 0) {
+	if (fputws(text, delim_stream) < 0) {
 		EEXIT(ERR_DELIM_WRITE, ECODE_DELIM_WRITE);
 	}
+
+	delim_hold = stdin;
+	if (dup2(fileno(delim_stream), STDIN_FILENO) < 0) {
+		EEXIT(ERR_DELIM_DUP, ECODE_DELIM_DUP);
+	}
+	fclose(delim_stream);
+	delim_hold = stdin;
+	freopen(&delim_rpath[0], "r", stdin);
 }
 
 void exec_delim_command(void) {
-	FLUSH_STDIO();
-	fclose(delim_stream);
-	if (!(delim_stream = freopen(&delim_fpath[0], "r", stdin))) {
-		EEXIT(ERR_DELIM_REOPEN, ECODE_DELIM_REOPEN);
-	}
-
 	FILE* stream = popen(delim_command, "r");
 
-	FLUSH_STDIO();
-	fflush(stream);
-
-	char*   line;
+	char*   line = GC_MALLOC(LINE_MAX);
 	ssize_t reads;
 	size_t  readn;
-	while ((reads = getline(&line, &readn, stream)) > 0) {
+	while ((reads = getline(&line, &readn, stream)) > 0)
 		fputs(line, yyout);
-		free(line);
-	}
 
+	stdin = delim_hold;
 	pclose(stream);
 
 }
@@ -659,12 +657,12 @@ wchar_t* gc_wcsdup(wchar_t* ws) {
 	return memmove(&wsc[0], &ws[0], len * sizeof(wchar_t));
 }
 
-wchar_t* gc_mbsdup(char* s) {
+wchar_t* gc_mbsdup(const char* s) {
 	memset(&mbs, 0, sizeof(mbstate_t));
 	size_t len 	    = strlen(s) + 1;
 	wchar_t*	wcs = GC_MALLOC(sizeof(wchar_t) * len);
 	wchar_t*	wsc = GC_MALLOC(sizeof(wchar_t) * len);
-	mbrtowc(wcs, s, len, &mbs);
+	mbsrtowcs(wcs, &s, len, &mbs);
 	return memmove(&wsc[0], &wcs[0], len * sizeof(wchar_t));
 }
 
