@@ -52,7 +52,7 @@ bool  	yyexpand = false;
 
 %token ENGAGE_PREFIX DELIMITED QUOTED ESC_TEXT REGEX
 %token TRANSLIT LSDIR CATFILE DATETIME OFFSET INCLUDE
-%token EXEC EVAL REFLECT DNL LF
+%token EXEC EVAL REFLECT DNL LF EXEC_DELIM
 %token DIVERT UNDIVERT
 %token PUSH POP
 %token DEFINE UNDEF
@@ -108,6 +108,7 @@ main : exit
      | refl
      | exec
      | eval
+     | '\n'
      ;
 
 body : argn
@@ -261,7 +262,7 @@ divr : ENGAGE_PREFIX
      ;
 
 dlim : ENGAGE_PREFIX
-	EXEC '$' QUOTED
+	EXEC_DELIM '$' QUOTED
 	  '<' DELIMITED '\n'    { delim_command = $<sval>4;
 	  			  init_delim_stream($<wval>6,
 	  				$<lenv>$);
