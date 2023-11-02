@@ -88,9 +88,10 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 				return DIVNUM; }
 <ENG>[0-9]+      { yylval.ival = atoi(&yytext[0]); 
 				return ARGNUM; }
-<INITIAL>. ECHO;
+<INITIAL>.    ECHO;
 
-\n	   ECHO;
+<INITIAL>\n   { ECHO; return *yytext; }
+
 
 <ENG>lsdir	return LSDIR;
 <ENG>translit	return TRANSLIT;
@@ -102,6 +103,7 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 <ENG>undivert	{ BEGIN(DIV1); return UNDIVERT; }
 
 <ENG>exec	return EXEC;
+<ENG>execdelim  return EXEC_DELIM;
 <ENG>eval	{ BEGIN(EVL); return EVAL;   }
 
 <ENG>push	return PUSH;
