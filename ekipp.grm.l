@@ -29,6 +29,8 @@ Hexal		[0xX][a-fA-F0-9]+
 Octal		[0oO][0-7]+
 Binary		[0bB][0-1]+
 Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
+LimOpen		<==
+LimClose	==>
 
 %x ESC
 %x ENG
@@ -36,10 +38,12 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 %x ARG
 %x INB
 %x EVL
-%x DLM
+%x DLM1
+%x DLM2
 %x QUO
 %x COM
 %x PTH
+%s DEF
 %s DIV1
 %s DIV2
 %%
@@ -47,31 +51,33 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 <*>\/\*	               BEGIN(COM);
 <ENG>::	               BEGIN(PTH);
 <DIV1>[$]	       return *yytext;
-<DIV1>[\n]           { BEGIN(DIV2); return *yytext; }
-<INITIAL,DIV2>^"#! " { BEGIN(ENG); return ENGAGE_PREFIX; }
+<DIV1>[\n]           { BEGIN(DIV2);    return *yytext; }
+<INITIAL,DIV2>^"#! " { BEGIN(ENG);     return ENGAGE_PREFIX; }
 <ENG,EVL>[\n]+       { BEGIN(INITIAL); return *yytext;   }
 
-<ENG><?!       BEGIN(DLM);
-<ENG>`	       BEGIN(QUO);
-<ENG>[$<>?:()] return *yytext;
+<ENG>`	           BEGIN(QUO);
+<ENG>[$?:()]       return *yytext;
+<ENG>[|]         { BEGIN(DLM1); return *yytext; }
+<DLM1>{LimOpen}    BEGIN(DLM2);
 
 <*><<EOF>>	  { yyterminate();   }
 
 <COM>[^\*\/]  REJECT;
 <COM>\*\/     BEGIN(INITIAL);
 
-<DLM>.+	     { yylval.wval = gc_mbsdup(&yytext[0]);  }
-<DLM>\?!>    { BEGIN(INITIAL); return DELIMITED;     }
+
+<DLM2>[^=>]+        { yylval.wval = gc_mbsdup(&yytext[0]);  }
+<DLM2>{LimClose}    { BEGIN(INITIAL); return DELIMITED;     }
 
 <QUO>[^`]+  { yylval.wval = gc_mbsdup(&yytext[0]);
 	      yylval.sval = gc_strdup(&yytext[0]);   }
-<QUO>`	    { BEGIN(INITIAL); return QUOTED;	     }
+<QUO>`	    { BEGIN(ENG); return QUOTED;	     }
 
 <DIV2>.   { fputc(*yytext, yyout); }
 <DIV2>\n  { fputc(*yytext, yyout); }
 
-<EVL,ENG>[$]      return *yytext;
-<EVL>[\*\+\-\%]   return *yytext;
+<EVL,ENG>[$]        return *yytext;
+<EVL>[\*\+\-\%<>]   return *yytext;
 
 <INITIAL>[ \t]	  ECHO;
 <ESC,DIV1,ENG,REG,ARG,INB,EVL>[ \t] {};
@@ -103,14 +109,14 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 <ENG>undivert	{ BEGIN(DIV1); return UNDIVERT; }
 
 <ENG>exec	return EXEC;
-<ENG>execdelim  return EXEC_DELIM;
+<ENG>delimexec  return EXEC_DELIM;
 <ENG>eval	{ BEGIN(EVL); return EVAL;   }
 
-<ENG>push	return PUSH;
-<ENG>pop	return POP;
+<ENG>push	{ BEGIN(DEF); return PUSH;   }
+<ENG>pop	{ BEGIN(DEF); return POP;    }
 
-<ENG>define	return DEFINE;
-<ENG>undef	return UNDEF;
+<ENG>define	{ BEGIN(DEF); return DEFINE; }
+<ENG>undef	{ BEGIN(DEF); return UNDEF;  }
 
 <ENG>reflect	return REFLECT;
 <ENG>current	return CURRENT;
@@ -144,7 +150,7 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 <ESC>.+	      	   return ESC_TEXT;
 <ESC>[\n\r]{2}   { BEGIN(INITIAL); }
 
-<ENG>{Ident}		{ yylval.wval = gc_mbsdup(&yytext[0]);
+<DEF>{Ident}		{ yylval.wval = gc_mbsdup(&yytext[0]);
 				BEGIN(ARG); return IDENT;    }
 
 
