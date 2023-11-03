@@ -18,3 +18,5 @@ lex.yy.c
 *.tab.*
 ekipp
 .handy
+yybodyeval.c
+yydefeval.c
