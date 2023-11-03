@@ -505,7 +505,6 @@ void print_env(char* key) {
 	char* var;
 	if ((var = getenv(key)) != NULL)
 		fputs(var, yyout);
-	free(key);
 }
 
 extern char** sys_argv;
