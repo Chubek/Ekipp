@@ -17,3 +17,4 @@ config.h
 lex.yy.c
 *.tab.*
 ekipp
+.handy

@@ -16,20 +16,24 @@
 
 #define MAX_TOKEN  8
 
-extern FILE*   yyin;
-extern FILE*   yyout;
-extern int     yyparse(void);
-extern void    yyreflect(wchar_t* line);
-extern char*   optarg;
+extern char*     optarg;
+extern FILE*	 yyin;
+extern FILE* 	 yyout;
+extern int	 yyparse(void);
+extern wchar_t*  yybuiltineval(wchar_t*);
 
+static mbstate_t mbs;
 
-extern char    quote_left[MAX_TOKEN];
-extern char    quote_right[MAX_TOKEN];
-extern char    comment_left[MAX_TOKEN];
-extern char    comment_right[MAX_TOKEN];
-extern char    delim_left[MAX_TOKEN];
-extern char    delim_right[MAX_TOKEN];
-extern char    engage_sigil[MAX_TOKEN];
+static wchar_t* yyreflect(const char* input) {
+	memset(&mbs, 0, sizeof(mbstate_t));
+
+	size_t   len = strlen(input);
+	wchar_t* wcs = GC_MALLOC(len * sizeof(wchar_t));
+
+	mbsrtowcs(wcs, &input, len, &mbs);
+	return yybuiltineval(wcs);
+}
+
 
 static void close_io(void) {
 	fflush(yyout);
@@ -55,7 +59,7 @@ static void on_startup(void) {
 static void repl(void) {
 	char* line;
 	while ((line = readline(NULL)) != NULL) {
-		yyreflect((wchar_t*)line);
+		yyreflect(line);
 		free(line);
 	}
 }
@@ -82,77 +86,16 @@ static void hook_io(void) {
 		yyout = fopen(&yyout_path[0], "w");
 }
 
-#define LQUOTE_DFL 		"q/"
-#define RQUOTE_DFL 		"/"
-#define LCOMMENT_DFL		"/*"
-#define RCOMMENT_DFL		"*/"
-#define LDELIM_DFL		"<:?"
-#define RDELIM_DFL		":?>"
-#define ENGAGE_SIGIL_DFL	"#!"
-
-
-static void set_default(void) {
-	set_token(&quote_left[0], 
-			getenv("EKIPP_LQUOTE") 
-				? getenv("EKIPP_LQUOTE")
-				: LQUOTE_DFL);
-	set_token(&quote_right[0], 
-			getenv("EKIPP_RQUOTE") 
-				? getenv("EKIPP_RQUOTE")
-				: RQUOTE_DFL);
-
-	set_token(&comment_left[0], 
-			getenv("EKIPP_LCOMMENT") 
-				? getenv("EKIPP_LCOMMENT")
-				: LCOMMENT_DFL);
-	set_token(&comment_right[0], 
-			getenv("EKIPP_RCOMMENT") 
-				? getenv("EKIPP_RCOMMENT")
-				: RCOMMENT_DFL);
-
-	set_token(&delim_left[0], 
-			getenv("EKIPP_LDELIM") 
-				? getenv("EKIPP_LDELIM")
-				: LDELIM_DFL);
-	set_token(&delim_right[0], 
-			getenv("EKIPP_RDELIM") 
-				? getenv("EKIPP_RDELIM")
-				: RDELIM_DFL);
-
-	set_token(&engage_sigil[0],
-			getenv("EKIPP_ENGAGE_SIGIL")
-				? getenv("EKIPP_ENGAGE_SIGIL")
-				: ENGAGE_SIGIL_DFL);
-
-}
-
 static void parse_options(void) {
-	int	c;
-	enum {
-		LEFT = 0, RIGHT = 1,
-	};
-
-	char* const token[] = {
-		[LEFT] 	= "l:",
-		[RIGHT]	= "r:",
-		NULL,
-	};
-	int inidx = 0;
+	int c;
+	int inidx;
 
 	while (true) {
-		static char* short_options = 
-			   "e:a:c:s:x:f:o:q:k:d:h";
-		char* subopts;
-		char* val;
-		char* tok;
+		static char* short_options =  "f:o:";
 
 		static struct option long_options[] = {
-			{ "engage-sigil", required_argument, 0, 'e'},
-			{ "delim-pair",   required_argument, 0, 'd'},
-			{ "comment-pair", required_argument, 0, 'k'},
-			{ "quote-pair",   required_argument, 0, 'q'},
 			{ "input-script", required_argument, 0, 'f'},
-			{ "yyout-file",  required_argument, 0, 'o'},
+			{ "yyout-file",   required_argument, 0, 'o'},
 			{ "help",	  no_argument,       0, 'h'},
 			{ 0,              0,                 0,  0 }
 
@@ -167,9 +110,6 @@ static void parse_options(void) {
 			break;
 
 		switch (c) {
-			case 'e':
-				set_token(&engage_sigil[0], optarg);
-				break;
 			case 'f':
 				optind--;
 				for (; optind < sys_argc 
@@ -183,33 +123,8 @@ static void parse_options(void) {
 						optarg,
 						strlen(optarg));
 				break;
-			case 'q':
-			case 'k':
-			case 'd':
-				subopts = optarg;
-				switch (getsubopt(&subopts, 
-							token, &val)){
-					case LEFT:
-						tok = c == 'q'
-                                                   ? &quote_left[0]
-						   : (c == 'k' 
-							? &comment_left[0]
-							: &delim_left[0]);
-						set_token(&tok[0], val);
-						break;
-					case RIGHT:
-						tok = c == 'q'
-                                                   ? &quote_right[0]
-						   : (c == 'k' 
-							? &comment_right[0]
-							: &delim_right[0]);
-						set_token(&tok[0], val);
-						break;
-				break;
 			default:
 				break;
-				}
-
 		}
 
 	}
@@ -221,7 +136,6 @@ int main(int argc, char** argv) {
 	sys_argc = argc;
 	sys_argv = argv;
 	
-	set_default();
 	parse_options();
 	hook_io();
 	init_hold();

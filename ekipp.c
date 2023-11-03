@@ -470,6 +470,8 @@ void invoke_printargs(wchar_t* delim) {
 	OUTPUT(invoke_argv[n]);
 }
 
+extern wchar_t* yybodyeval(wchar_t*);
+
 void invoke_macro(wchar_t *id) {
 	wchar_t* macro = get_symbol(id);
 	if (!macro)
@@ -477,7 +479,7 @@ void invoke_macro(wchar_t *id) {
 	if (!macro) {
 		EEXIT(ERR_UNKNOWN_MACRO, ECODE_UNKNOWN_MACRO);
 	}
-	yyinvoke(macro);
+	yybodyeval(macro);
 	free(id);
 }
 
