@@ -512,7 +512,7 @@ extern char** sys_argv;
 extern int    sys_argc;
 
 void print_argv(int n) {
-	if (sys_argc < n) {
+	if (sys_argc > n) {
 		fputs(sys_argv[n], yyout);
 	}
 }
