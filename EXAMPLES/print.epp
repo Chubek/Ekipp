@@ -1,0 +1,3 @@
+#! print $ argv 0
+#! print $ environ `HOME`
+
