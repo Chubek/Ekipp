@@ -175,7 +175,7 @@ offs : ENGAGE_PREFIX
 
 ldir : ENGAGE_PREFIX
         LSDIR '$'
-	FILEPATH '\n'          { aux_prim = $<wval>4;
+	FILEPATH '\n'          { aux_qaut = $<sval>4;
 				 list_dir();			}
      ;
 
@@ -187,15 +187,15 @@ date : ENGAGE_PREFIX
 
 catf : ENGAGE_PREFIX
         CATFILE '$'
-	FILEPATH '\n'          { aux_prim = $<wval>4;
+	FILEPATH '\n'          { aux_qaut = $<sval>4;
 				 cat_file();			}
      ;
 
 
 incl : ENGAGE_PREFIX
      	INCLUDE '$'
-	FILEPATH '\n'          { aux_prim = $<wval>4;
-				  cat_file();			}
+	FILEPATH '\n'          { aux_qaut = $<sval>4;
+				  include_file();		}
      ;
 
 pdnl : ENGAGE_PREFIX
