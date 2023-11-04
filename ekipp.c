@@ -496,6 +496,7 @@ void print_argv(int n) {
 wchar_t*	aux_prim;
 wchar_t*	aux_sec;
 wchar_t*	aux_tert;
+char*		aux_qaut;
 
 void set_aux(wchar_t** aux, wchar_t* value) {
 	*aux = gc_wcsdup(value);
@@ -563,7 +564,7 @@ void list_dir(void) {
 }
 
 void cat_file(void) {
-	#define FILE_PATH	aux_prim
+	#define FILE_PATH	aux_qaut
 
 	FILE*	stream	= fopen((char*)FILE_PATH, "r");
 	if (fseek(stream, 0, SEEK_END) < 0) {
@@ -594,12 +595,12 @@ void cat_file(void) {
 
 void include_file(void) { cat_file(); }
 
-#define OUT_TIME_MAX 1024
+#define OUT_TIME_MAX (2 << 14)
 
 void format_time(void) {
-	#define FMT	aux_prim
+	#define FMT	aux_qaut
 
-	char out_time[OUT_TIME_MAX];
+	char out_time[OUT_TIME_MAX] = {0};
 	time_t t;
 	struct tm* tmp;
 
@@ -609,7 +610,7 @@ void format_time(void) {
 		EEXIT(ERR_FORMAT_TIME, ECODE_FORMAT_TIME);
 	}
 
-	if (strftime(&out_time[0], OUT_TIME_MAX, (char*)fmt, tmp) == 0) {
+	if (strftime(&out_time[0], OUT_TIME_MAX, (char*)FMT, tmp) == 0) {
 		EEXIT(ERR_FORMAT_TIME, ECODE_FORMAT_TIME);
 	}
 
