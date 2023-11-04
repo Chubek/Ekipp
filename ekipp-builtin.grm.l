@@ -58,7 +58,7 @@ LimClose	==>
 			BEGIN(INITIAL); return DEFINE_TEXT;}
 
 <ENG>`	           BEGIN(QUO);
-<ENG>[$?:()]       return *yytext;
+<ENG>[$?:]       return *yytext;
 <ENG>[|]         { BEGIN(DLM1); return *yytext; }
 <DLM1>{LimOpen}    BEGIN(DLM2);
 
@@ -67,13 +67,15 @@ LimClose	==>
 <COM>[^\*\/]  REJECT;
 <COM>\*\/     BEGIN(INITIAL);
 
+<DLM2>[^=>]+        { yylval.wval = gc_mbsdup(&yytext[0]);
+			return DELIMITED;   }
+<DLM2>{LimClose}      BEGIN(INITIAL);
 
-<DLM2>[^=>]+        { yylval.wval = gc_mbsdup(&yytext[0]);  }
-<DLM2>{LimClose}    { BEGIN(INITIAL); return DELIMITED;     }
-
-<QUO>[^`]+  { yylval.wval = gc_mbsdup(&yytext[0]);
-	      yylval.sval = gc_strdup(&yytext[0]);   }
-<QUO>`	    { BEGIN(ENG); return QUOTED;	     }
+<QUO>[^`]+  { yylval.qval.wval = gc_mbsdup(&yytext[0]);
+	      yylval.qval.sval = gc_strdup(&yytext[0]);
+	      return QUOTED;
+	    }
+<QUO>`	      BEGIN(ENG);
 
 <DIV2>.   { fputc(*yytext, yyout); }
 <DIV2>\n  { fputc(*yytext, yyout); }
@@ -83,6 +85,20 @@ LimClose	==>
 
 <INITIAL>[ \t]	  ECHO;
 <ESC,DIV1,ENG,REG,ARG,INB,EVL>[ \t] {};
+
+<ENG>[(]	 { BEGIN(ARG); return *yytext; }
+<ARG>[,$]	   return *yytext;
+<ARG>[)]         { BEGIN(ENG); return *yytext; }
+<ARG>{Decimal}  |
+   {Hexal}	|
+   {Octal}      |
+   {Binary}	 { yylval.wval = gc_mbsdup(&yytext[0]);
+   				return ARG_NUM;         }
+<ARG>{Ident}	 { yylval.wval = gc_mbsdup(&yytext[0]); 
+				return ARG_IDENT;       }
+<ARG>[^$^(^)^,]+ { yylval.wval = gc_mbsdup(&yytext[0]);
+				return ARG_STR;         }
+
 
 <EVL>{Decimal}	 { yylval.ival = strtoll(yytext, NULL, 10); 
 				return NUM;    }
@@ -94,7 +110,7 @@ LimClose	==>
 				return NUM;    }
 <DIV1>[\-]?[0-9] { yylval.ival = atoi(&yytext[0]); 
 				return DIVNUM; }
-<ENG>[0-9]+      { yylval.ival = atoi(&yytext[0]); 
+<ENG>[0-9]+	 { yylval.ival = atoi(&yytext[0]);
 				return ARGNUM; }
 <INITIAL>.    ECHO;
 
@@ -122,6 +138,7 @@ LimClose	==>
 <ENG>print	return PRINT;
 <ENG>printf	return PRINTF;
 <ENG>argv	return ARGV;
+<ENG>environ	return ENVIRON;
 
 <ENG>include	return INCLUDE;
 
@@ -135,7 +152,6 @@ LimClose	==>
 <EVL>\+\+	return INCR;
 <EVL>\-\-	return DECR;
 
-
 <INITIAL,ENG>[/]  { BEGIN(REG); }
 
 <INITIAL,ENG>\\   { BEGIN(ESC); }
@@ -148,13 +164,6 @@ LimClose	==>
 
 <PTH>[0-9a-zA-Z_/-]{1,255} { yylval.sval = gc_strdup(&yytext[0]); }
 <PTH>::		       	   { BEGIN(INITIAL); return FILEPATH;     }	
-
-<ARG>[^,^)^(^\n]+     { yylval.wval = gc_mbsdup(&yytext[0]);
-					return ARGUMENT; }
-<ARG>[()]	return *yytext;
-<ARG>,		BEGIN(INB);
-<INB>[^)]	BEGIN(ARG);
-<INB>[)]	BEGIN(ENG);
 %%
 
 void yyerror(const char* err) {
