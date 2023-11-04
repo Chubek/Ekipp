@@ -537,6 +537,7 @@ void offset(void) {
 	#undef SUB
 }
 
+
 void list_dir(void) {
 	#define DIR_PATH 	aux_prim
 
@@ -554,7 +555,6 @@ void list_dir(void) {
 				++i,
 				&entry->d_name[0]
 			);
-		free(entry);
 	}
 
 	closedir(stream);
