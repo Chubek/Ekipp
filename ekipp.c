@@ -606,6 +606,7 @@ void include_file(void) {
 
 	yyparse();
 
+	fclose(yyin);
 	yyin = inhold;
 
 	#undef FILE_PATH 
