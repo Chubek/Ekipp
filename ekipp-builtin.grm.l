@@ -132,6 +132,7 @@ LimClose	==>
 
 <ENG>reflect	return REFLECT;
 <ENG>current	return CURRENT;
+<ENG>search	return SEARCH;
 
 <ENG>exit	return EXIT;
 <ENG>error	return ERROR;
@@ -162,7 +163,7 @@ LimClose	==>
 <ESC>.+	      	   return ESC_TEXT;
 <ESC>[\n\r]{2}   { BEGIN(INITIAL); }
 
-<PTH>[0-9a-zA-Z_/-]{1,255} { yylval.sval = gc_strdup(&yytext[0]); }
+<PTH>[0-9a-zA-Z_/\-\.]{1,255} { yylval.sval = gc_strdup(&yytext[0]); }
 <PTH>::		       	   { BEGIN(INITIAL); return FILEPATH;     }	
 %%
 
