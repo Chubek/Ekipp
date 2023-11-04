@@ -22,6 +22,7 @@ extern   FILE*    yyin;
 extern  wchar_t*  aux_prim;
 extern  wchar_t*  aux_sec;
 extern	wchar_t*  aux_tert;
+extern  char*	  aux_qaut;
 
 extern  char* 	  exec_cmd;
 extern  wchar_t*  exec_strcmp;
@@ -180,7 +181,7 @@ ldir : ENGAGE_PREFIX
 
 date : ENGAGE_PREFIX
      	DATETIME '$'
-	QUOTED '\n'            { aux_prim = $<qval>4.wval;
+	QUOTED '\n'            { aux_qaut = $<qval>4.sval;
 				 format_time();			}
      ;
 
