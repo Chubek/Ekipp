@@ -88,7 +88,7 @@ static void hook_io(void) {
 
 static void parse_options(void) {
 	int c;
-	int inidx;
+	int inidx = 0;
 
 	while (true) {
 		static char* short_options =  "f:o:";

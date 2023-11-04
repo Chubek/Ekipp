@@ -24,5 +24,5 @@ lex.yy.c: clean
 	lex --debug ekipp-builtin.grm.l
 
 .PHONY : clean
-clean: $(FILES)
+clean: 
 	rm -f $(FILES)
