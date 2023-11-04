@@ -41,18 +41,18 @@ extern  wchar_t*  yydefeval(wchar_t*);
 wchar_t* yybuiltineval(wchar_t*);
 
 
-
 %}
 
 %define parse.error verbose
 
-%token ENGAGE_PREFIX DELIMITED QUOTED ESC_TEXT REGEX
+%token ENGAGE_PREFIX DELIMITED QUOTED ESC_TEXT REGEX ARGNUM
 %token TRANSLIT LSDIR CATFILE DATETIME OFFSET INCLUDE
 %token EXEC EVAL REFLECT DNL LF EXEC_DELIM
+%token ARG_NUM ARG_IDENT ARG_STR
 %token DIVERT UNDIVERT
 %token EXIT ERROR PRINT PRINTF ENVIRON FILEPATH SEARCH ARGV CURRENT
 %token GE LE EQ NE SHR SHL POW INCR DECR
-%token DIVNUM ARGNUM NUM ARGUMENT
+%token DIVNUM NUM
 %token DEFINE_PREFIX DEFINE_TEXT
 
 %left  '*' '/' '%' POW
@@ -63,6 +63,10 @@ wchar_t* yybuiltineval(wchar_t*);
 	int64_t 	ival;
 	int		cval;
 	wchar_t*	wval;
+	struct {
+		wchar_t*	wval;
+		char*		sval;
+	}		qval;
 	char*		sval;
 	size_t		lenv;
 }
@@ -95,6 +99,7 @@ main : exit
      | dlim
      | exec
      | eval
+     | defn
      | '\n'
      ;
 
@@ -122,21 +127,24 @@ srch : ENGAGE_PREFIX
 
 prnf : ENGAGE_PREFIX
          PRINTF '$'
-	  QUOTED args  '\n'    { fmt = $<wval>4;
-	  			 print_formatted();		}
+	  QUOTED { fmt = $<qval>4.wval; } '(' args ')' 
+	  		'\n' { print_formatted(); }
      ;
 
 
-args : '(' argu ')'
+args :
+     | argu ',' args	
+     | argu
      ;
 
-argu : ARGUMENT			{ invoke_addarg($<wval>1);	}
-     | argu ',' ARGUMENT	{ invoke_addarg($<wval>3); 	}
+argu : ARG_NUM			{ invoke_addarg($<wval>1); }
+     | ARG_STR			{ invoke_addarg($<wval>1); }
+     | ARG_IDENT		{ invoke_addarg(get_symbol($<wval>1)); }
      ;
 
 prnt : ENGAGE_PREFIX
      	PRINT '$' ENVIRON 
-		QUOTED  '\n'    { print_env($<sval>5);		}
+		QUOTED  '\n'    { print_env($<qval>5.sval);	}
      | ENGAGE_PREFIX
         PRINT '$' ARGV
 	        ARGNUM  '\n'    { print_argv($<ival>5);		}
@@ -146,17 +154,17 @@ trns : ENGAGE_PREFIX
         TRANSLIT '$'
 	QUOTED '>'
 	QUOTED '&'
-	QUOTED '\n'	       { aux_prim = $<wval>4;
-				 aux_sec  = $<wval>6;
-				 aux_tert = $<wval>8;
+	QUOTED '\n'	       { aux_prim = $<qval>4.wval;
+				 aux_sec  = $<qval>6.wval;
+				 aux_tert = $<qval>8.wval;
 				 translit();			}
      ;
 
 offs : ENGAGE_PREFIX
         OFFSET '$'
 	QUOTED '?'
-	QUOTED '\n'            { aux_prim = $<wval>4;
-				 aux_sec  = $<wval>6;
+	QUOTED '\n'            { aux_prim = $<qval>4.wval;
+				 aux_sec  = $<qval>6.wval;
 				 offset();			}
      ;
 
@@ -168,7 +176,7 @@ ldir : ENGAGE_PREFIX
 
 date : ENGAGE_PREFIX
      	DATETIME '$'
-	QUOTED '\n'            { aux_prim = $<wval>4;
+	QUOTED '\n'            { aux_prim = $<qval>4.wval;
 				 format_time();			}
      ;
 
@@ -193,20 +201,20 @@ ifex : ENGAGE_PREFIX
      	QUOTED '$'
         QUOTED '?'
 	QUOTED ':'
-	QUOTED '\n'		{ exec_cmd      = $<sval>2;
-				  exec_strcmp   = $<wval>4;
-				  exec_streq    = $<wval>6;
-				  exec_strne    = $<wval>8;
+	QUOTED '\n'		{ exec_cmd      = $<qval>2.sval;
+				  exec_strcmp   = $<qval>4.wval;
+				  exec_streq    = $<qval>6.wval;
+				  exec_strne    = $<qval>8.wval;
      ;				  ifelse_execmatch();		}
 
 ifre : ENGAGE_PREFIX
      	REGEX 	'$' 
 	QUOTED  '?'
 	QUOTED	':'
-	QUOTED	'\n'		{ reg_pattern    = $<sval>2;
-				  reg_input      = $<sval>4;
-				  reg_matchmsg 	 = $<wval>6;
-				  reg_nomatchmsg = $<wval>8;
+	QUOTED	'\n'		{ reg_pattern    = $<qval>2.sval;
+				  reg_input      = $<qval>4.sval;
+				  reg_matchmsg 	 = $<qval>6.wval;
+				  reg_nomatchmsg = $<qval>8.wval;
 				  ifelse_regmatch();		 }
      ;
 
@@ -224,7 +232,7 @@ divr : ENGAGE_PREFIX
 
 dlim : ENGAGE_PREFIX
 	EXEC_DELIM '$' QUOTED
-	  '|' DELIMITED '\n'    { delim_command = $<sval>4;
+	  '|' DELIMITED '\n'    { delim_command = $<qval>4.sval;
 	  			  init_delim_stream($<wval>6);
 				  exec_delim_command();	         }
      ;
@@ -233,7 +241,7 @@ dlim : ENGAGE_PREFIX
 
 exec : ENGAGE_PREFIX
      	EXEC '$' 
-	     QUOTED '\n'	{ exec_cmd = $<sval>4;
+	     QUOTED '\n'	{ exec_cmd = $<qval>4.sval;
 					exec_command();		 }
      ;
 
