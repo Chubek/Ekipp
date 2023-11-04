@@ -96,7 +96,7 @@ LimClose	==>
    				return ARG_NUM;         }
 <ARG>{Ident}	 { yylval.wval = gc_mbsdup(&yytext[0]); 
 				return ARG_IDENT;       }
-<ARG>[^$^(^)^,]+ { yylval.wval = gc_mbsdup(&yytext[0]);
+<ARG>[^$^(^)^,^ ]+ { yylval.wval = gc_mbsdup(&yytext[0]);
 				return ARG_STR;         }
 
 
