@@ -119,10 +119,14 @@ escp : '\\' ESC_TEXT	      { fputws($<wval>2, yyout);	}
 
 srch : ENGAGE_PREFIX
          SEARCH '$'
-	  FILEPATH '\n'     { open_search_close($<sval>4);   }
+	  QUOTED
+	  FILEPATH '\n'     {   reg_pattern = $<qval>4.sval;
+	  			open_search_close($<sval>5);   }
      | ENGAGE_PREFIX
-         SEARCH '$'
-	  CURRENT '\n'      { yyin_search();			}
+         SEARCH '$' 
+	  QUOTED
+	  CURRENT '\n'      { 	reg_pattern = $<qval>4.sval;
+	  			yyin_search();			}
      ;
 
 prnf : ENGAGE_PREFIX
