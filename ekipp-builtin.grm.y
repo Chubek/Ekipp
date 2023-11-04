@@ -111,7 +111,7 @@ exit : ENGAGE_PREFIX
          EXIT  '\n'	       { exit(EXIT_SUCCESS);		}
      | ENGAGE_PREFIX
          EXIT '$'
-	  NUM  '\n'	       { exit($<ival>4);		}
+	  ARGNUM  '\n'	       { exit($<ival>4);		}
      ;
 
 escp : '\\' ESC_TEXT	      { fputws($<wval>2, yyout);	}
