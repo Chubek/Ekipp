@@ -540,9 +540,9 @@ void offset(void) {
 
 
 void list_dir(void) {
-	#define DIR_PATH 	aux_prim
+	#define DIR_PATH 	aux_qaut
 
-	DIR* stream = opendir((char*)DIR_PATH);
+	DIR* stream = opendir(DIR_PATH);
 	if (!stream) {
 		EEXIT(ERR_NO_DIR, ECODE_NO_DIR);
 	}
@@ -563,15 +563,20 @@ void list_dir(void) {
 	#undef DIR_PATH
 }
 
+
 void cat_file(void) {
 	#define FILE_PATH	aux_qaut
 
-	FILE*	stream	= fopen((char*)FILE_PATH, "r");
+	FILE*	stream	= fopen(FILE_PATH, "r");
+	if (stream == NULL) {
+		EEXIT(ERR_OPEN_FILE, ECODE_OPEN_FILE);
+	}
+
 	if (fseek(stream, 0, SEEK_END) < 0) {
 		EEXIT(ERR_CAT_FAIL, ECODE_CAT_FAIL);
 	}
 
-	long len = ftell(stream);
+	long len = ftell(stream) + 1;
 	if (len < 0) {
 		fclose(stream);
 		return;
@@ -579,21 +584,32 @@ void cat_file(void) {
 
 	rewind(stream);
 
-	wchar_t* text = calloc(len, sizeof(wchar_t));
-	if (fread(&text[0], len, sizeof(wchar_t), stream) < 0) {
+	char* text = GC_MALLOC(len);
+	if (fread(&text[0], len, sizeof(char), stream) < 0) {
 		EEXIT(ERR_CAT_FAIL, ECODE_CAT_FAIL);
 	}
 
-	OUTPUT(text);
+	fputs(text, yyout);
 
 	fclose(stream);
-	free(text);
-
 
 	#undef FILE_PATH
 }
 
-void include_file(void) { cat_file(); }
+extern	int 	yyparse(void);
+
+void include_file(void) { 
+	#define FILE_PATH 	aux_qaut
+
+	FILE* inhold	= yyin;
+	yyin		= fopen(FILE_PATH, "r");
+
+	yyparse();
+
+	yyin = inhold;
+
+	#undef FILE_PATH 
+}
 
 #define OUT_TIME_MAX (2 << 14)
 
