@@ -222,8 +222,8 @@ void ifelse_regmatch(void) {
 }
 
 void search_file(FILE* stream) {
-	wchar_t* line_str;
-	wchar_t* word;
+	char*    line_str;
+	char*    word;
 	size_t	 line_len;
 	regoff_t start;
 	regoff_t len;
@@ -232,29 +232,33 @@ void search_file(FILE* stream) {
 		EEXIT(ERR_REG_COMP, ECODE_REG_COMP);
 	}
 
-	for (int i = 0; i; i++) {
-		if (!getline((char**)&line_str, &line_len, stream)) {
+	for (;;) {
+		if (getline(&line_str, &line_len, stream) > 0) {
 			if (!regexec(&reg_cc, 
-					(char*)line_str, 
+					line_str, 
 					NMATCH, 
 					reg_pmatch, 
 					0)) {
 				start = reg_pmatch[0].rm_so;
 				len   = reg_pmatch[0].rm_eo - start;
-				wcsncpy(&word[0], &line_str[start], len);
-				OUTPUT(word);
-				free(word);
-			}
+				word = gc_strndup(&line_str[start], len);
+				fputs(word, yyout);
+				word = NULL;
+			} else
+				goto free;
 		}
 		free(line_str);
 	}
-
+free:
 	regfree(&reg_cc);
 
 }
 
 void open_search_close(char* path) {
-	FILE* stream = fopen(path, "r");
+	FILE* stream;
+	if ((stream = fopen(path, "r")) == NULL) {
+		EEXIT(ERR_FILE_OPEN, ECODE_FILE_OPEN);
+	}
 	search_file(stream);
 	fclose(stream);
 }
@@ -647,6 +651,10 @@ char* gc_strdup(char* s) {
 	return memmove(&wsc[0], &s[0], len);
 }
 
+char* gc_strndup(char* s, size_t len) {
+	char*		wsc = GC_MALLOC(len);
+	return memmove(&wsc[0], &s[0], len);
+}
 
 char* str_ltrim(char* str, int ch) {
 	char* ret = str;
