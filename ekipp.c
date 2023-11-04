@@ -8,6 +8,8 @@
 #include <wchar.h>
 #include <regex.h>
 #include <dirent.h>
+#include <stddef.h>
+#include <inttypes.h>
 #include <time.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -365,65 +367,8 @@ void exec_delim_command(void) {
 	pclose(stream);
 
 }
-#define MAX_TOKEN	8
-#define REGISTRY_SIZE	65536
 
-char	quote_left[MAX_TOKEN];
-char	quote_right[MAX_TOKEN];
-char	comment_left[MAX_TOKEN];
-char	comment_right[MAX_TOKEN];
-char	delim_left[MAX_TOKEN];
-char	delim_right[MAX_TOKEN];
-char	engage_sigil[MAX_TOKEN];
-
-#define MAX_FMT		MAX_TOKEN * 8
-
-char 	comment_fmt[MAX_FMT];
-
-bool	tokens_registry[REGISTRY_SIZE];
-
-void zero_registry(void) {
-	memset(&tokens_registry[0], false, sizeof(bool) * REGISTRY_SIZE);
-}
-
-void register_token(char* token) {
-	uint16_t hash = 0;
-	char	 c;
-	
-	while ((c = *token++))
-		hash = (hash * 33) + c;
-
-	if (tokens_registry[hash] == true) {
-		EEXIT(ERR_TOKEN_REREGISTER, ECODE_TOKEN_REREGISTER);
-	}
-
-	tokens_registry[hash] = true;
-}
-
-void set_token(char* token, char* value) {
-	register_token(value);
-	memset(&token[0], 0, MAX_TOKEN);
-	memmove(&token[0], &value[0], strlen(&value[0]));
-	reformat_fmts();
-}
-
-void reformat_fmts(void) {
-	sprintf(&comment_fmt[0], 
-			"%s%%*s%s", &comment_left[0], &comment_right[0]);
-}
-
-bool token_is(char* token, char* cmp, size_t len) {
-	return !strncmp(token, cmp, len);
-}
-
-
-extern void 		yyinvoke(wchar_t* code);
-char			keyletter;
-
-#ifndef ARG_MAX
-#define ARG_MAX		1024
-#endif
-
+#define  ARG_MAX	255
 wchar_t* invoke_argv[ARG_MAX];
 wchar_t* joined_argv;
 size_t	 invoke_argc = 0;
@@ -486,16 +431,44 @@ void invoke_macro(wchar_t *id) {
 wchar_t*	fmt;
 
 void print_formatted(void) {
-	wchar_t wc;
-	wchar_t f[3] = {0};
-	int i = 0;
+	wchar_t    wc;
+	int        i    = 0;
+	intmax_t   num;
+	wchar_t*   str;
 
 	while ((wc = *fmt++) && i < invoke_argc) {
 		if (wc == L'%' && *fmt != L'%') {
-			f[0] = L'%';
-			f[1] = *fmt++;
-			fwprintf(yyout, &f[0], invoke_argv[i++]);
+			switch (*fmt++) {
+				case L'd':
+				case L'i':
+				case L'l':
+					num = 
+					  wcstoimax(&invoke_argv[i++][0],
+							NULL, 10);
+					fwprintf(yyout, L"%ld", num);
+					break;
+				case L'x':
+					num = 
+					  wcstoimax(&invoke_argv[i++][0],
+							NULL, 16);
+					fwprintf(yyout, L"%x", num);
+					break;
+				case L'o':
+					num = 
+					   wcstoimax(&invoke_argv[i++][0],
+							NULL, 8);
+					fwprintf(yyout, L"%o", num);
+					break;
+				case L's':
+					str = invoke_argv[i++];
+					fwprintf(yyout, L"%s", str);
+					break;
+				default:
+					break;
+			} 
 		}
+		else
+			fputwc(wc, yyout);
 	}
 
 }
@@ -652,6 +625,8 @@ void do_on_exit(void) {
 mbstate_t mbs;
 wchar_t*  wcs;
 
+#define SPACE		' '
+
 wchar_t* gc_wcsdup(wchar_t* ws) {
 	size_t		len = wcslen(ws) + 1;
 	wchar_t*	wsc = GC_MALLOC(sizeof(wchar_t) * len);
@@ -662,9 +637,8 @@ wchar_t* gc_mbsdup(const char* s) {
 	memset(&mbs, 0, sizeof(mbstate_t));
 	size_t len 	    = strlen(s) + 1;
 	wchar_t*	wcs = GC_MALLOC(sizeof(wchar_t) * len);
-	wchar_t*	wsc = GC_MALLOC(sizeof(wchar_t) * len);
 	mbsrtowcs(wcs, &s, len, &mbs);
-	return memmove(&wsc[0], &wcs[0], len * sizeof(wchar_t));
+	return wcs;
 }
 
 char* gc_strdup(char* s) {
@@ -674,9 +648,42 @@ char* gc_strdup(char* s) {
 }
 
 
+char* str_ltrim(char* str, int ch) {
+	char* ret = str;
+	while (strchr(ret, ch) != NULL)
+		ret = &ret[1];
+	return ret;
+}
+
+char* str_rtrim(char* str, int ch) {
+	char* ret = str;
+	while ((str = strrchr(ret, ch)) != NULL)
+		ret[str - ret] = '\0';
+	return ret;
+}
+
+wchar_t* wstr_ltrim(wchar_t* str, wchar_t ch) {
+	wchar_t* ret = str;
+	while (wcschr(ret, ch) != NULL)
+		ret = &ret[1];
+	return ret;
+}
+
+wchar_t* wstr_rtrim(wchar_t* str, wchar_t ch) {
+	wchar_t* ret = str;
+	while ((str = wcsrchr(str, ch)) != NULL)
+		ret[str - ret] = '\0';
+	return ret;
+}
 
 
+wchar_t* wstr_trim(wchar_t* str, wchar_t ch) {
+	return wstr_ltrim(wstr_rtrim(str, ch), ch);
+}
 
+char*  str_trim(char* str, int ch) {
+	return str_ltrim(str_rtrim(str, ch), ch);
+}
 
 
 

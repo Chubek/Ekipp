@@ -59,6 +59,8 @@ void do_on_exit(void);
 wchar_t* gc_wcsdup(wchar_t* s);
 wchar_t* gc_mbsdup(const char* s);
 char*	 gc_strdup(char* s);
+char*    str_trim(char* str, int ch);
+wchar_t* wstr_trim(wchar_t* str, wchar_t ch);
 void init_hold(void);
 
 #endif
