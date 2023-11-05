@@ -20,18 +20,18 @@ extern char*     optarg;
 extern FILE*	 yyin;
 extern FILE* 	 yyout;
 extern int	 yyparse(void);
-extern wchar_t*  yybuiltineval(wchar_t*);
+extern wchar_t*  yydefeval(wchar_t*);
 
 static mbstate_t mbs;
 
 static wchar_t* yyreflect(const char* input) {
 	memset(&mbs, 0, sizeof(mbstate_t));
-
+ 
 	size_t   len = strlen(input);
 	wchar_t* wcs = GC_MALLOC(len * sizeof(wchar_t));
 
 	mbsrtowcs(wcs, &input, len, &mbs);
-	return yybuiltineval(wcs);
+	return yydefeval(wcs);
 }
 
 

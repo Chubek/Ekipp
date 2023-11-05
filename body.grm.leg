@@ -23,7 +23,7 @@ Body   = ( Text | Call | Argnum )* "\n\n";
 Text   = < ( !(Call Argnum) . )* > { fputs(&yytext[0], yyout);    }
        ;
 
-Call   = '$' i:IDENT		{ fputws(get_symbol((wchar_t*)i), 
+Call   = '$' i:IDENT		{ fputws(get_symbol((char*)i), 
 						yyout);		  }
        ;
 
