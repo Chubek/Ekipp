@@ -19,11 +19,6 @@ extern   void     yyerror(const char* err);
 extern   FILE*    yyout;
 extern   FILE*    yyin;
 
-extern  wchar_t*  aux_prim;
-extern  wchar_t*  aux_sec;
-extern	wchar_t*  aux_tert;
-extern  char*	  aux_qaut;
-
 extern  char* 	  exec_cmd;
 extern  wchar_t*  exec_strcmp;
 extern  wchar_t*  exec_streq;
@@ -64,9 +59,11 @@ wchar_t* yybuiltineval(wchar_t*);
 	int64_t 	ival;
 	int		cval;
 	wchar_t*	wval;
+	uint8_t*	uval;
 	struct {
 		wchar_t*	wval;
 		char*		sval;
+		uint8_t*	uval;
 	}		qval;
 	char*		sval;
 	size_t		lenv;
@@ -159,43 +156,38 @@ trns : ENGAGE_PREFIX
         TRANSLIT '$'
 	QUOTED '>'
 	QUOTED '&'
-	QUOTED '\n'	       { aux_prim = $<qval>4.wval;
-				 aux_sec  = $<qval>6.wval;
-				 aux_tert = $<qval>8.wval;
-				 translit();			}
+	QUOTED '\n'	       { translit($<qval>4.uval,  
+					$<qval>6.uval,  
+					$<qval>8.uval);		}
      ;
 
 offs : ENGAGE_PREFIX
         OFFSET '$'
 	QUOTED '?'
-	QUOTED '\n'            { aux_prim = $<qval>4.wval;
-				 aux_sec  = $<qval>6.wval;
-				 offset();			}
+	QUOTED '\n'            { offset($<qval>4.wval, 
+				         $<qval>6.wval);	}
+
      ;
 
 ldir : ENGAGE_PREFIX
         LSDIR '$'
-	FILEPATH '\n'          { aux_qaut = $<sval>4;
-				 list_dir();			}
+	FILEPATH '\n'          { list_dir($<sval>4);		}
      ;
 
 date : ENGAGE_PREFIX
      	DATETIME '$'
-	QUOTED '\n'            { aux_qaut = $<qval>4.sval;
-				 format_time();			}
+	QUOTED '\n'            { format_time($<qval>4.sval);   }
      ;
 
 catf : ENGAGE_PREFIX
         CATFILE '$'
-	FILEPATH '\n'          { aux_qaut = $<sval>4;
-				 cat_file();			}
+	FILEPATH '\n'          { cat_file($<sval>4);           }
      ;
 
 
 incl : ENGAGE_PREFIX
      	INCLUDE '$'
-	FILEPATH '\n'          { aux_qaut = $<sval>4;
-				  include_file();		}
+	FILEPATH '\n'          { include_file($<sval>4);       }
      ;
 
 pdnl : ENGAGE_PREFIX
