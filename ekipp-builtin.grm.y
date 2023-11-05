@@ -19,11 +19,6 @@ extern   void     yyerror(const char* err);
 extern   FILE*    yyout;
 extern   FILE*    yyin;
 
-extern  char* 	  exec_cmd;
-extern  wchar_t*  exec_strcmp;
-extern  wchar_t*  exec_streq;
-extern  wchar_t*  exec_strne;
-
 extern  char*	  reg_input;
 extern  char*	  reg_pattern;
 extern  wchar_t*  reg_matchmsg;
@@ -43,11 +38,11 @@ wchar_t* yybuiltineval(wchar_t*);
 
 %token ENGAGE_PREFIX DELIMITED QUOTED ESC_TEXT REGEX ARGNUM
 %token TRANSLIT LSDIR CATFILE DATETIME OFFSET INCLUDE
-%token EXEC EVAL REFLECT DNL LF EXEC_DELIM
+%token EXEC EVAL REFLECT DNL LF EXEC_DELIM IFEXEC
 %token ARG_NUM ARG_IDENT ARG_STR
 %token DIVERT UNDIVERT
 %token EXIT ERROR PRINT PRINTF ENVIRON FILEPATH SEARCH ARGV CURRENT
-%token GE LE EQ NE SHR SHL POW INCR DECR
+%token GE LE EQ NE SHR SHL POW INCR DECR IFEX
 %token DIVNUM NUM
 %token DEFINE_PREFIX DEFINE_TEXT
 
@@ -67,6 +62,7 @@ wchar_t* yybuiltineval(wchar_t*);
 	}		qval;
 	char*		sval;
 	size_t		lenv;
+	int		cmpval;
 }
 
 %type <ival> expr
@@ -195,14 +191,14 @@ pdnl : ENGAGE_PREFIX
      ;
 
 ifex : ENGAGE_PREFIX
-     	QUOTED '$'
-        QUOTED '?'
-	QUOTED ':'
-	QUOTED '\n'		{ exec_cmd      = $<qval>2.sval;
-				  exec_strcmp   = $<qval>4.wval;
-				  exec_streq    = $<qval>6.wval;
-				  exec_strne    = $<qval>8.wval;
-     ;				  ifelse_execmatch();		}
+     	QUOTED IFEX QUOTED 
+     	 '?' QUOTED
+	 ':' QUOTED '\n'      { ifelse_execmatch($<qval>2.wval,
+					$<qval>4.wval,
+					$<qval>6.sval,
+					$<qval>8.sval,
+					$<cmpval>3);           }
+     ;
 
 ifre : ENGAGE_PREFIX
      	REGEX 	'$' 
@@ -238,8 +234,8 @@ dlim : ENGAGE_PREFIX
 
 exec : ENGAGE_PREFIX
      	EXEC '$' 
-	     QUOTED '\n'	{ exec_cmd = $<qval>4.sval;
-					exec_command();		 }
+	     QUOTED '\n'	{ exec_command($<qval>4.sval);	 }
+
      ;
 
 eval : ENGAGE_PREFIX 
