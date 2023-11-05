@@ -73,6 +73,7 @@ LimClose	==>
 
 <QUO>[^`]+  { yylval.qval.wval = gc_mbsdup(&yytext[0]);
 	      yylval.qval.sval = gc_strdup(&yytext[0]);
+	      yylval.qval.uval = gc_ubydup(&yytext[0]);
 	      return QUOTED;
 	    }
 <QUO>`	      BEGIN(ENG);
@@ -80,7 +81,7 @@ LimClose	==>
 <DIV2>.   { fputc(*yytext, yyout); }
 <DIV2>\n  { fputc(*yytext, yyout); }
 
-<EVL,ENG>[$]        return *yytext;
+<EVL,ENG>[$>&]      return *yytext;
 <EVL>[\*\+\-\%<>]   return *yytext;
 
 <INITIAL>[ \t]	  ECHO;
