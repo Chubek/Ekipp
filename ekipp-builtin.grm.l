@@ -117,6 +117,12 @@ LimClose	==>
 
 <INITIAL>\n   { ECHO; return *yytext; }
 
+<ENG>eq		{ yylval.cmpval = IFEXEC_EQ; return IFEX; }
+<ENG>ne		{ yylval.cmpval = IFEXEC_NE; return IFEX; }
+<ENG>gt		{ yylval.cmpval = IFEXEC_GT; return IFEX; }
+<ENG>ge		{ yylval.cmpval = IFEXEC_GE; return IFEX; }
+<ENG>lt		{ yylval.cmpval = IFEXEC_LT; return IFEX; }
+<ENG>le		{ yylval.cmpval = IFEXEC_LE; return IFEX; }
 
 <ENG>lsdir	return LSDIR;
 <ENG>translit	return TRANSLIT;
