@@ -493,56 +493,26 @@ void print_argv(int n) {
 	}
 }
 
-wchar_t*	aux_prim;
-wchar_t*	aux_sec;
-wchar_t*	aux_tert;
-char*		aux_qaut;
+void translit(uint8_t* input, uint8_t* srcmap, uint8_t* dstmap) {
+	uint8_t map[UINT8_MAX] = {0}, uc;
+	for (size_t i = 0; i < strlen(srcmap); i++)
+		map[srcmap[i]] = dstmap[i];
 
-void set_aux(wchar_t** aux, wchar_t* value) {
-	*aux = gc_wcsdup(value);
-}
-
-void translit(void) {
-	#define INPUT 		aux_prim
-	#define SRCMAP		aux_sec
-	#define DSTMAP		aux_tert
-
-	wchar_t 	wc   = 0;
-	wchar_t* 	wcp  = 0;
-	size_t		offs = 0;
-	size_t		lendst = wcslen(DSTMAP);
-
-	while ((wc = *INPUT++)) {
-		if ((wcp = wcschr(SRCMAP, wc), offs = wcp - SRCMAP)) {
-			if (offs < lendst)
-				fputwc(DSTMAP[offs], yyout);
-			else
-				break;
-		} else
-			fputwc(wc, yyout);
+	while ((uc = *input++)) {
+		if (map[uc])
+			fputc(map[uc], yyout);
+		else
+			fputc(uc, yyout);
 	}
-	OUTPUT(&INPUT[++offs]);
-
-	#undef INPUT
-	#undef SRCMAP
-	#undef DSTMAP
 }
 
-void offset(void) {
-	#define INPUT		aux_prim
-	#define SUB		aux_sec
-
-	fwprintf(yyout, L"%lp", wcsstr(INPUT, SUB) - INPUT);
-
-	#undef INPUT
-	#undef SUB
+void offset(wchar_t* input, wchar_t* sub) {
+	fwprintf(yyout, L"%lp\n", wcsstr(input, sub) - input);
 }
 
 
-void list_dir(void) {
-	#define DIR_PATH 	aux_qaut
-
-	DIR* stream = opendir(DIR_PATH);
+void list_dir(char* dir_path) {
+	DIR* stream = opendir(dir_path);
 	if (!stream) {
 		EEXIT(ERR_NO_DIR, ECODE_NO_DIR);
 	}
@@ -559,15 +529,11 @@ void list_dir(void) {
 	}
 
 	closedir(stream);
-
-	#undef DIR_PATH
 }
 
 
-void cat_file(void) {
-	#define FILE_PATH	aux_qaut
-
-	FILE*	stream	= fopen(FILE_PATH, "r");
+void cat_file(char* file_path) {
+	FILE*	stream	= fopen(file_path, "r");
 	if (stream == NULL) {
 		EEXIT(ERR_OPEN_FILE, ECODE_OPEN_FILE);
 	}
@@ -592,32 +558,24 @@ void cat_file(void) {
 	fputs(text, yyout);
 
 	fclose(stream);
-
-	#undef FILE_PATH
 }
 
 extern	int 	yyparse(void);
 
-void include_file(void) { 
-	#define FILE_PATH 	aux_qaut
-
+void include_file(char* file_path) { 
 	FILE* inhold	= yyin;
-	yyin		= fopen(FILE_PATH, "r");
+	yyin		= fopen(file_path, "r");
 
 	yyparse();
 
 	fclose(yyin);
 	yyin = inhold;
-
-	#undef FILE_PATH 
 }
 
 #define OUT_TIME_MAX (2 << 14)
 
-void format_time(void) {
-	#define FMT	aux_qaut
-
-	char out_time[OUT_TIME_MAX] = {0};
+void format_time(char* tfmt) {
+	char   out_time[OUT_TIME_MAX] = {0};
 	time_t t;
 	struct tm* tmp;
 
@@ -627,13 +585,11 @@ void format_time(void) {
 		EEXIT(ERR_FORMAT_TIME, ECODE_FORMAT_TIME);
 	}
 
-	if (strftime(&out_time[0], OUT_TIME_MAX, (char*)FMT, tmp) == 0) {
+	if (strftime(&out_time[0], OUT_TIME_MAX, tfmt, tmp) == 0) {
 		EEXIT(ERR_FORMAT_TIME, ECODE_FORMAT_TIME);
 	}
 
 	fputs(&out_time[0], yyout);
-
-	#undef FMT
 }
 
 void dnl(void) {
@@ -672,6 +628,12 @@ char* gc_strdup(char* s) {
 char* gc_strndup(char* s, size_t len) {
 	char*		wsc = GC_MALLOC(len);
 	return memmove(&wsc[0], &s[0], len);
+}
+
+uint8_t* gc_ubydup(char* s) {
+	size_t		len = strlen(s);
+	uint8_t*	str = GC_MALLOC(len);
+	return memmove(&str[0], &s[0], len);
 }
 
 char* str_ltrim(char* str, int ch) {
