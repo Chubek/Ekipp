@@ -530,7 +530,10 @@ void translit(uint8_t* input, uint8_t* srcmap, uint8_t* dstmap) {
 }
 
 void offset(wchar_t* input, wchar_t* sub) {
-	fwprintf(yyout, L"%lp\n", wcsstr(input, sub) - input);
+	fprintf(yyout, getenv("EKIPP_OFFS_FMT") 
+			? getenv("EKIPP_OFFS_FMT")
+			: "%ld\n", 
+			wcsstr(input, sub) - input);
 }
 
 
