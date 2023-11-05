@@ -272,33 +272,56 @@ void yyin_search(void) {
 
 #define FLUSH_STDIO() (fflush(stdin), fflush(stdout), fflush(stderr))
 
-char*		exec_cmd;
-wchar_t*	exec_strcmp;
-wchar_t*   	exec_strne;
-wchar_t*	exec_streq;
+void ifelse_execmatch(wchar_t*		strcmp1,
+                       wchar_t*		strcmp2,
+		       char*   		cmdtrue,
+		       char*		cmdfalse,
+		       int flag) {
+	int 	cmpres = wcscmp(strcmp1, strcmp2);
+	char*	toexec = NULL;
 
-#define BUFLEN 1024
+	switch (flag) {
+		case IFEXEC_EQ:
+			!cmpres 
+				? (toexec = cmdtrue)
+				: (toexec = cmdfalse);
+			goto exec;
+		case IFEXEC_NE:
+			cmpres
+				? (toexec = cmdtrue)
+				: (toexec = cmdfalse);
+			goto exec;
+		case IFEXEC_GE:
+			cmpres >= 0
+				? (toexec = cmdtrue)
+				: (toexec = cmdfalse);
+			goto exec;
+		case IFEXEC_GT:
+			cmpres > 0
+				? (toexec = cmdtrue)
+				: (toexec = cmdfalse);
+			goto exec;
+		case IFEXEC_LE:
+			cmpres <= 0
+				? (toexec = cmdtrue)
+				: (toexec = cmdfalse);
+			goto exec;
+		case IFEXEC_LT:
+			cmpres < 0
+				? (toexec = cmdtrue)
+				: (toexec = cmdfalse);
+			goto exec;
+		default:
+			return;
 
-void ifelse_execmatch(void) {
-	FILE* stream;
-	FLUSH_STDIO();
-	if (!(stream = popen(exec_cmd, "r"))) {
-		EEXIT(ERR_EXEC_CMD, ECODE_EXEC_CMD);
+			
 	}
-	FLUSH_STDIO();
-	fflush(stream);
-
-	char*   line = GC_MALLOC(LINE_MAX);
-	ssize_t reads;
-	size_t  readn;
-	while ((reads = getline(&line, &readn, stream)) > 0)
-		fputs(line, yyout);
-
-	pclose(stream);
+exec:
+	exec_command(toexec);
 }
 
 
-void exec_command(void) {
+void exec_command(char* exec_cmd) {
 	FILE* stream = popen(exec_cmd, "r");
 	FLUSH_STDIO();
 	if (!stream) {

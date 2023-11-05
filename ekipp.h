@@ -5,6 +5,12 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
+#define IFEXEC_EQ       1
+#define IFEXEC_NE       2
+#define IFEXEC_GE       3
+#define IFEXEC_GT       4
+#define IFEXEC_LE       5
+#define IFEXEC_LT       6
 
 typedef struct LinkedList 	node_t;
 typedef struct Defstack	  	dstack_t;
@@ -27,8 +33,8 @@ void ifelse_regmatch(void);
 void search_file(FILE* stream); 
 void open_search_close(char* path); 
 void yyin_search(void); 
-void ifelse_execmatch(void); 
-void exec_command(void); 
+void ifelse_execmatch(wchar_t*, wchar_t*, char*, char*, int flag); 
+void exec_command(char* exec_cmd); 
 void init_delim_stream(wchar_t* text); 
 void exec_delim_command(void); 
 void zero_registry(void); 
