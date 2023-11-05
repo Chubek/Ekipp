@@ -26,36 +26,47 @@
 
 static struct LinkedList {
 	struct LinkedList*		next;
-	wchar_t*			name;
+	char*				name;
 	wchar_t*			value;
 } *Symtable;
 
-void insert_symbol(wchar_t* name, wchar_t* value) {
+void insert_symbol(char* name, wchar_t* value) {
 	node_t* 	node	= GC_MALLOC(sizeof(node_t));
-	node->next	= Symtable;
-	node->name	= gc_wcsdup(name);
-	node->value     = gc_wcsdup(value);
-	Symtable	= node;
+	node->next		= Symtable;
+	node->name		= gc_strdup(name);
+	node->value    	 	= gc_wcsdup(value);
+	Symtable		= node;
 }
 
-wchar_t* get_symbol(wchar_t* name) {
+extern wchar_t* yydefeval(wchar_t* code);
+
+void defeval_insert(char* name, wchar_t* code) {
+	node_t*		node  = GC_MALLOC(sizeof(node_t));
+	node->next	      = Symtable;
+	node->name	      = gc_strdup(name);
+	node->value	      = gc_wcsdup(yydefeval(code));
+	Symtable	      = node;
+}
+
+
+wchar_t* get_symbol(char* name) {
 	node_t* 	node;
-	size_t 		len  = wcslen(name);
+	size_t 		len  = strlen(name);
 
 	for (node = Symtable; node != NULL; node = node->next) {
-		if (!wcsncmp(node->name, name, len))
+		if (!strncmp(node->name, name, len))
 			return node->value;
 	}
 	return NULL;
 }
 
 
-void remove_symbol(wchar_t* name) {
+void remove_symbol(char* name) {
 	node_t* 	node;
-	size_t 		len  = wcslen(name);
+	size_t 		len  = strlen(name);
 
 	for (node = Symtable; node != NULL; node = node->next) {
-		if (!wcsncmp(node->name, name, len)) {
+		if (!strncmp(node->name, name, len)) {
 			GC_FREE(node);
 		}
 	}
@@ -66,23 +77,23 @@ void remove_symbol(wchar_t* name) {
 #define MAX_STACK 	4096
 
 static struct DefStack {
-	wchar_t*	name;
+	char*		name;
 	wchar_t*	value;
 } Defstack[MAX_STACK];
 size_t	stack_pointer = 0;
 
-void push_stack(wchar_t* name, wchar_t* value) {
-	Defstack[stack_pointer].name   = gc_wcsdup(name);
+void push_stack(char* name, wchar_t* value) {
+	Defstack[stack_pointer].name   = gc_strdup(name);
 	Defstack[stack_pointer].value  = gc_wcsdup(value);
 	stack_pointer++;
 }
 
-wchar_t* get_stack_value(wchar_t* name) {
-	size_t len = wcslen(name);
+wchar_t* get_stack_value(char* name) {
+	size_t len = strlen(name);
 	size_t ptr = stack_pointer;
 
 	while (--ptr) {
-		if (!wcsncmp(Defstack[ptr].value, name, len))
+		if (!strncmp(Defstack[ptr].name, name, len))
 			return Defstack[ptr].value;
 	}
 
@@ -120,10 +131,13 @@ FILE*		hold;
 
 void open_null_file(void) {
 	char nullname[NULL_LEN] = {0};
+	
 	strncpy(&nullname[0], NULL_NAME, NULL_LEN);
 	strfry(&nullname[0]);
+
 	tmp_dir = opendir(P_tmpdir);
 	null_dev = makedev(MAJOR_NULL, MINOR_NULL);
+	
 	if ((null_fd = mknodat(dirfd(tmp_dir), 
 					&nullname[0], 
 					S_IWUSR | S_IFREG,
@@ -444,15 +458,14 @@ void invoke_printargs(wchar_t* delim) {
 
 extern wchar_t* yybodyeval(wchar_t*);
 
-void invoke_macro(wchar_t *id) {
+void invoke_macro(char* id) {
 	wchar_t* macro = get_symbol(id);
 	if (!macro)
-		macro = get_stack_value(id);
+		macro  = get_stack_value(id);
 	if (!macro) {
 		EEXIT(ERR_UNKNOWN_MACRO, ECODE_UNKNOWN_MACRO);
 	}
 	yybodyeval(macro);
-	free(id);
 }
 
 wchar_t*	fmt;
@@ -645,6 +658,14 @@ wchar_t* gc_mbsdup(const char* s) {
 	return wcs;
 }
 
+char* gc_wcs2mbs(wchar_t* s) {
+	size_t  len 	= wcslen(s);
+	char*   dst 	= GC_MALLOC(len);
+
+	wcstombs(&dst[0], (const wchar_t*)s, len);
+	return dst;
+}
+
 char* gc_strdup(char* s) {
 	size_t 		len = strlen(s) + 1;
 	char*		wsc = GC_MALLOC(len);
@@ -698,7 +719,6 @@ wchar_t* wstr_trim(wchar_t* str, wchar_t ch) {
 char*  str_trim(char* str, int ch) {
 	return str_ltrim(str_rtrim(str, ch), ch);
 }
-
 
 
 
