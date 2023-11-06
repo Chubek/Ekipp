@@ -5,16 +5,18 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
-#include <wchar.h>
 #include <math.h>
 
+
+#include <unistr.h>
+#include <unistdio.h>
 #include <gc.h>
 
 #include "ekipp.h"
 
 #define MAX_TOKEN 8
 
-extern	 wchar_t* fmt;
+extern	 uint8_t* fmt;
 extern   int 	  yylex(void);
 extern   void     yyerror(const char* err);
 extern   FILE*    yyout;
@@ -22,16 +24,16 @@ extern   FILE*    yyin;
 
 extern  char*	  reg_input;
 extern  char*	  reg_pattern;
-extern  wchar_t*  reg_matchmsg;
-extern  wchar_t*  reg_nomatchmsg;
+extern  uint8_t*  reg_matchmsg;
+extern  uint8_t*  reg_nomatchmsg;
 
 extern 	char*	  delim_command;
 extern  FILE*	  current_divert;
 
-extern  wchar_t*  yybodyeval(wchar_t*);
+extern  void	  yyparse_body(void);
+extern  uint8_t*  body_code;
 
-
-wchar_t* yydefeval(wchar_t* code);
+uint8_t* yydefeval(uint8_t* code);
 
 
 
@@ -56,16 +58,7 @@ wchar_t* yydefeval(wchar_t* code);
 
 %union {
 	int64_t 	ival;
-	int		cval;
-	wchar_t*	wval;
-	uint8_t*	uval;
-	struct {
-		wchar_t*	wval;
-		char*		sval;
-		uint8_t*	uval;
-	}		qval;
-	char*		sval;
-	size_t		lenv;
+	uint8_t*	sval;
 	int		cmpval;
 }
 
@@ -103,22 +96,23 @@ main : exit
      ;
 
 call : CALL_PREFIX
-     	IDENT '(' args ')'     { invoke_macro($<sval>2);	}
+     	IDENT '(' args ')'     { body_code = get_symbol($<sval>2);
+				 yyparse_body();		}
      | CALL_PREFIX
-        IDENT CALL_SUFFIX      { wchar_t* txt = get_symbol($<sval>2); 
-				 fprintf(yyout, "%s", gc_wcs2mbs(txt)); }
+        IDENT CALL_SUFFIX      { fprintf(yyout, "%s", 
+					get_symbol($<sval>2));   }
      ;
 
 defn : DEF_PREFIX
      	DEFINE '$'
 	IDENT CHEVRON
 	QUOTED		       { insert_symbol($<sval>4, 
-					$<qval>6.wval);		}
+					$<sval>6);		}
      | DEF_PREFIX
      	DEFEVAL '$'
 	IDENT CHEVRON
 	QUOTED		       { defeval_insert($<sval>4,
-					$<qval>6.wval);		}
+					$<sval>6);		}
      ;
 
 exit : ENGAGE_PREFIX
@@ -128,24 +122,24 @@ exit : ENGAGE_PREFIX
 	  ARGNUM  '\n'	       { exit($<ival>4);		}
      ;
 
-escp : '\\' ESC_TEXT	      { fputws($<wval>2, yyout);	}
+escp : '\\' ESC_TEXT	      { fputs($<sval>2, yyout);	}
      ;
 
 srch : ENGAGE_PREFIX
          SEARCH '$'
 	  QUOTED
-	  FILEPATH '\n'     {   reg_pattern = $<qval>4.sval;
+	  FILEPATH '\n'     {   reg_pattern = $<sval>4;
 	  			open_search_close($<sval>5);   }
      | ENGAGE_PREFIX
          SEARCH '$' 
 	  QUOTED
-	  CURRENT '\n'      { 	reg_pattern = $<qval>4.sval;
+	  CURRENT '\n'      { 	reg_pattern = $<sval>4;
 	  			yyin_search();			}
      ;
 
 prnf : ENGAGE_PREFIX
          PRINTF '$'
-	  QUOTED { fmt = $<qval>4.wval; } '(' args ')' 
+	  QUOTED { fmt = $<sval>4; } '(' args ')' 
 	  		'\n' { print_formatted(); }
      ;
 
@@ -155,14 +149,14 @@ args :
      | argu
      ;
 
-argu : ARG_NUM			{ invoke_addarg($<wval>1); }
-     | ARG_STR			{ invoke_addarg($<wval>1); }
+argu : ARG_NUM			{ invoke_addarg($<sval>1); }
+     | ARG_STR			{ invoke_addarg($<sval>1); }
      | ARG_IDENT		{ invoke_addarg(get_symbol($<sval>1)); }
      ;
 
 prnt : ENGAGE_PREFIX
      	PRINT '$' ENVIRON 
-		QUOTED  '\n'    { print_env($<qval>5.sval);	}
+		QUOTED  '\n'    { print_env($<sval>5);	}
      | ENGAGE_PREFIX
         PRINT '$' ARGV
 	        ARGNUM  '\n'    { print_argv($<ival>5);		}
@@ -172,16 +166,16 @@ trns : ENGAGE_PREFIX
         TRANSLIT '$'
 	QUOTED '>'
 	QUOTED '&'
-	QUOTED '\n'	       { translit($<qval>4.uval,  
-					$<qval>6.uval,  
-					$<qval>8.uval);		}
+	QUOTED '\n'	       { translit($<sval>4,  
+					$<sval>6,  
+					$<sval>8);		}
      ;
 
 offs : ENGAGE_PREFIX
         OFFSET '$'
 	QUOTED '?'
-	QUOTED '\n'            { offset($<qval>4.wval, 
-				         $<qval>6.wval);	}
+	QUOTED '\n'            { offset($<sval>4, 
+				         $<sval>6);	}
 
      ;
 
@@ -192,7 +186,7 @@ ldir : ENGAGE_PREFIX
 
 date : ENGAGE_PREFIX
      	DATETIME '$'
-	QUOTED '\n'            { format_time($<qval>4.sval);   }
+	QUOTED '\n'            { format_time($<sval>4);   }
      ;
 
 catf : ENGAGE_PREFIX
@@ -213,10 +207,10 @@ pdnl : ENGAGE_PREFIX
 ifex : ENGAGE_PREFIX
      	QUOTED IFEX QUOTED 
      	 '?' QUOTED
-	 ':' QUOTED '\n'      { ifelse_execmatch($<qval>2.wval,
-					$<qval>4.wval,
-					$<qval>6.sval,
-					$<qval>8.sval,
+	 ':' QUOTED '\n'      { ifelse_execmatch($<sval>2,
+					$<sval>4,
+					$<sval>6,
+					$<sval>8,
 					$<cmpval>3);           }
      ;
 
@@ -224,10 +218,10 @@ ifre : ENGAGE_PREFIX
      	REGEX 	'$' 
 	QUOTED  '?'
 	QUOTED	':'
-	QUOTED	'\n'		{ reg_pattern    = $<qval>2.sval;
-				  reg_input      = $<qval>4.sval;
-				  reg_matchmsg 	 = $<qval>6.wval;
-				  reg_nomatchmsg = $<qval>8.wval;
+	QUOTED	'\n'		{ reg_pattern    = $<sval>2;
+				  reg_input      = $<sval>4;
+				  reg_matchmsg 	 = $<sval>6;
+				  reg_nomatchmsg = $<sval>8;
 				  ifelse_regmatch();		 }
      ;
 
@@ -245,8 +239,8 @@ divr : ENGAGE_PREFIX
 
 dlim : ENGAGE_PREFIX
 	EXEC_DELIM '$' QUOTED
-	  '|' DELIMITED '\n'    { delim_command = $<qval>4.sval;
-	  			  init_delim_stream($<wval>6);
+	  '|' DELIMITED '\n'    { delim_command = $<sval>4;
+	  			  init_delim_stream($<sval>6);
 				  exec_delim_command();	         }
      ;
 
@@ -254,7 +248,7 @@ dlim : ENGAGE_PREFIX
 
 exec : ENGAGE_PREFIX
      	EXEC '$' 
-	     QUOTED '\n'	{ exec_command($<qval>4.sval);	 }
+	     QUOTED '\n'	{ exec_command($<sval>4);	 }
 
      ;
 
@@ -286,21 +280,23 @@ expr : expr '+' NUM		{ $$ = $<ival>1 + $<ival>3;      }
      ;
 %%
 
-wchar_t* yydefeval(wchar_t* code) {
+uint8_t* yydefeval(uint8_t* code) {
 	FILE* 	in_hold 	= yyin;
 	FILE*	out_hold	= yyout;
 
-	wchar_t* result 	= NULL;
+	uint8_t* result 	= NULL;
 	size_t 	 result_len	= 0;
 
-	yyin			= fmemopen(code, wcslen(code), "r");
-	yyout			= open_wmemstream(&result, &result_len);
+	yyin			= fmemopen((char*)code,
+					u8_strlen(code), "r");
+	yyout			= open_memstream((char**)&result, 
+					&result_len);
 
 	yyparse();
 
-	wchar_t* res_autoalloc  = GC_MALLOC(result_len * sizeof(wchar_t));
+	uint8_t* res_autoalloc  = GC_MALLOC(result_len * sizeof(uint8_t));
 	memmove(&res_autoalloc[0], 
-		&result[0], result_len * sizeof(wchar_t));
+		&result[0], result_len * sizeof(uint8_t));
 	fclose(yyout);
 	fclose(yyin);
 	yyin 			= in_hold;
