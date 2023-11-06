@@ -67,8 +67,8 @@ char	yyout_path[FILENAME_MAX] = {0};
 char    input_files[FILENAME_MAX][MAX_INPUT] = {0};
 
 static void show_cc(void) {
-	puts("Ekipp Copyright (C) 2023 Chubak Bidpaa\n");
-	puts("This program comes with ABSOLUTELY NO WARRANTY\n\n");
+	puts("Ekipp Copyright (C) 2023 Chubak Bidpaa");
+	puts("This program comes with ABSOLUTELY NO WARRANTY\n");
 }
 
 static void hook_io(void) {
@@ -98,7 +98,7 @@ static void parse_options(void) {
 	int inidx = 0;
 
 	while (true) {
-		static char* short_options =  "f:o:";
+		static char* short_options =  "f:o:h";
 
 		static struct option long_options[] = {
 			{ "input-script", required_argument, 0, 'f'},
@@ -130,6 +130,10 @@ static void parse_options(void) {
 						optarg,
 						strlen(optarg));
 				break;
+			case 'h':
+				printf("Usage: %s [-f INFILES...] [-o OUTFIULE]\n", sys_argv[0]);
+				puts("Please see `man 1 ekipp` for more info.");
+				exit(EXIT_FAILURE);
 			default:
 				break;
 		}
