@@ -1,2 +1,2 @@
-#! printf $ `num %d %d` ( 1, 2 )
+#! printf $ ''num %d %d'' ( 1, 2 )
 

@@ -1,4 +1,4 @@
-#! delimexec $ `awk '{ print $1; }'` | <== foo bar ==>
+#! delimexec $ ''awk '{ print $1; }''' | <== foo bar ==>
 
 bar foo
 

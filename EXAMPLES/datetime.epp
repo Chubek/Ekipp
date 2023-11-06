@@ -1,1 +1,1 @@
-#! datetime $ `%G %a`
+#! datetime $ ''%G %a''

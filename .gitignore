@@ -20,3 +20,5 @@ ekipp
 .handy
 yybodyeval.c
 yydefeval.c
+*.1
+*.html
