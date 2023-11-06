@@ -73,6 +73,7 @@ static void show_cc(void) {
 
 static void hook_io(void) {
 	if (input_files[0][0] == 0 && isatty(STDIN_FILENO)) {
+		yyout = stdout;
 		show_cc(); repl();
 		exit(EXIT_SUCCESS);
 	}
