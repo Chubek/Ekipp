@@ -1,15 +1,18 @@
-FILES := lex.yy.c yy.tab.c yy.tab.h ekipp yybodyeval.c
+FILES := lex.yy.c yy.tab.c yy.tab.h ekipp body.tab.c body.tab.h
 
 
 
 ekipp: errors.gen
-	gcc $(DEBUG) ekipp.c startup.c yy.tab.c lex.yy.c yybodyeval.c -lgc -ll -lm -lreadline -o ekipp
+	gcc $(DEBUG) ekipp.c startup.c yy.tab.c lex.yy.c body.tab.c -lgc -ll -lm -lreadline -lunistring -o ekipp
  
-errors.gen: yybodyeval.c
+errors.gen: body.tab.c
 	perl errgen.pl
 
-yybodyeval.c: yy.tab.c
-	leg -o yybodyeval.c body.grm.leg
+body.tab.c: body.tab.h
+	yacc --debug -b body body.grm.y
+
+body.tab.h: yy.tab.c
+	yacc --debug -b body -d body.grm.y
 
 yy.tab.c: yy.tab.h
 	yacc --debug -b yy ekipp.grm.y
