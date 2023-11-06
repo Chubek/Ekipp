@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <sysexits.h>
 #include <limits.h>
 
 #include <unistr.h>
@@ -187,12 +188,20 @@ void yyerror(const char* err) {
 }
 
 int yywrap(void) {
-	if (input_idx == MAX_INPUT - 1 || !input_files[input_idx + 1][0])
+	input_idx++;
+	if (input_idx == MAX_INPUT - 1 
+		|| !input_files[input_idx][0])
 		return 1;
 	else {
+		putchar('\n');
 		if (yyin) 
 			fclose(yyin);
-		yyin = fopen(input_files[input_idx++], "r");
+		yyin = fopen(&input_files[input_idx++][0], "r");
+		if (!yyin) {
+			fprintf(stderr, "Error: file \"%s\" not found\n",
+				&input_files[input_idx - 1][0]);
+			exit(EX_IOERR);
+		}
 		return 0;
 	}
 }
