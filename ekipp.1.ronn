@@ -21,67 +21,56 @@ Ekipp is a macro preprocessor language similar to m4(1) and gpp(1). It reads the
 
 As a macro preprocessor, Ekipp operates on documents, these documents are normal Unicode text (Ekipp supports utf-8(7)) intermixed with either built-in Ekipp macros, or custom ones. Generally, the syntax for Ekipp macros follows this rule:
 
-```
-<PREFIX> <MACRO_NAME> '$' <MACRO_PREIPHERIES> <NEWLINE>
-```
+`<PREFIX> <MACRO_NAME> '$' <MACRO_PREIPHERIES> <NEWLINE>`
 
 This rule may change for some conditional built-in macros, but overall, ths is the rule followed by Ekipp's parser.
 
 There are three prefix tokens utilized in Ekipp. These prefixes are:
 
-* *Engage Prefix* (`#!`) -> Engage built-in macros
+* **Engage Prefix** (<#!>) -> Engage built-in macros
 
-* *Define Prefix* (`@!`) -> Define a macro
+* **Define Prefix** (<@!>) -> Define a macro
 
-* *Call Prefix* (`$!`)	 -> Call a macro, with or without arguments
+* **Call Prefix** (<$!>)  -> Call a macro, with or without arguments
 
-There's also one suffix, `!$`, which is the *Call Suffix*.
+There's also one suffix, `!$`, which is terminates a call with <no argumets>.
 
-This is how prefxes are utilized:
+**This is how prefxes are utilized**:
 
 A document is scanned from left to right, top to bottom. Upon reaching one of these prefixes, the scanner engages with that construct. For example:
 
-```
-#! eval $ 1+1
-```
+`#! eval $ 1+1`
 
 This will evaluate the expression `1 + 1` and output the number 2 into the output file stream.
 
 The define prefix works like this:
 
-```
-@! define $ myMacro123 => `foo bar`
-```
+`@! define $ myMacro123 => ''foo bar''`
 
-This will define a macro called `myMacro123`.
+This will define a macro called <myMacro123>.
 
 Likewise, call prefix and suffix work like this:
 
-```
-$! myMacro123 !$
-```
+`$! myMacro123 !$`
 
-This will output `foo bar` into the output stream.
+This will output <foo bar> into the output stream.
 
 You may pass arguments to the macro, in which case **the suffix is not needed**.
 
-```
-$! myArgMacro ( foo, bar )
-```
+`$! myArgMacro ( foo, bar )`
+
 
 To access arguments in the macro definition, Ekipp takes a page out of m4(1)'s book and uses the sigil `#` along with a number ranging from 0 to `ARG_MAX` to refer to arguments passed to the macro:
 
-```
-@! define $ myArgMacro => `A #0 but not #1`
-```
+`@! define $ myArgMacro => ''A #0 but not #1''`
 
 Thusly, the example statement before this one shall evaluate to:
 
-	`A foo but not bar`
+<A foo but not bar>
 
-A la m4(1), you may use `#@` to join the arguments by space, and `#*` to join them by comma.
+A la m4(1), you may use <#@> to join the arguments by space, and <#*> to join them by comma.
 
-**Note**: With the call prefix, you need not enter a newline to terminate. But for definition and engaging with built-in macros, a sequence must terminate in an `'\n'` ('\r\n' is not supported).
+**Note**: With the <call> prefix, you need not enter a newline to terminate. But for definition and engaging with built-in macros, a sequence must terminate in an '\n' ('\r\n' is not supported).
 
 ### Built-in macros
 
@@ -93,141 +82,108 @@ These macros resemble the tasks which perform as string or file utilities.
 
 *Note*: Notice that built-in and define macros must be terminated with '\n'. This has been designed in this way to avoid the headache of m4(1)'s `dnl`.
 
-* catfile: Concatenate file to the output stream
+* <catfile>: Concatenate file to the output stream
 * Example:
 
-```
-#! catfile $ ::/home/chubak/correspondance.ls::
-
-```
+`#! catfile $ ::/home/chubak/correspondance.ls::`
 
 **Observation**: In Ekipp, filepaths are enclosed in `::`.
 
-* include: Concatenrate file to the CURRENT input stream
-* Example: Similar to `catfile`, just replace the keyword with `include`.
+* <include>: Concatenrate file to the CURRENT input stream
+* Example: Similar to <catfile>, just replace the keyword with `include`.
 
-*Difference between `catfile` and `include` is, `catfile` works on the output stream whereas `include` operates on the input stream.*
+*Difference between <catfile> and <include> is, <catfile> works on the output stream whereas <include> operates on the input stream.*
 
-* search: Search a regular expression in a file.
+* <search>: Search a regular expression in a file.
 * Example:
 
-```
-#! search $ ::expectations.mvp::
+`#! search $ ::expectations.mvp::`
 
-```
-
-* lsdir: List contents of a directory.
+* <lsdir>: List contents of a directory.
 * Example: Similar to others.
 
-* translit: Transliterate characters in a string, similar to its peer in m4(1).
+* <translit>: Transliterate characters in a string, similar to its peer in m4(1).
 * Example:
 
-```
-#! translit $ `ekipp` > `ip` & `qz`
-
-```
+`#! translit $ ''ekipp'' > ''ip'' & ''qz''`
 
 This will print out `ekqzz`.
 
-offset: Print the offset of a substring
-Example:
+* <offset>: Print the offset of a substring
+* Example:
 
-```
-#! offset $ `foobar` ? `bar`
+`#! offset $ ''foobar'' ? ''bar''`
 
-```
-
-This will print `3`.
+This will print 3.
 
 
 #### Category B: Divert and Undivert
 
 These two work similar to how they do in m4(1). There are 9 non-null diverts, and one null divert. The non-null diverts are numbered 0-9 and any negative number will be interpreted as a null divert.
 
-```
-#! divert $ -1
+`#! divert $ -1`
 
-This text will disappear into nothingness
-```
+`This text will disappear into nothingness`
 
 The null divert is a char device with the same major and minor device number as /dev/null. So they act the same way. The device is created using mknod(2) in **/tmp**.
 
 Non-null divert works like this.
 
-```
-#! divert $ 2
+`#! divert $ 2`
 
-This text won't print
+`This text won't print`
 
-#! undivert $ 2
+`#! undivert $ 2`
 
-Now the text above will print above this
+`Now the text above will print above this`
 
+Of course, using one divert makes no sense. You must use more than one at the same tme to utilize it properly. 
 
-```
-
-Of course, using one dvert makes no sense. You must use more than one at the same tme to utilize it properly. 
-
+**Note**: When the program terminates, all the diverts will be free'd, and their contents dumped (if non-null).
 
 #### Category C: Print and Printf
 
-`print` is used like this:
+<print> is used like this:
 
-```
-#! print $ argv 2 /* prints the second argument passed to application */
-#! print $ environ `HOME` /* prints the HOME environment variable */
+`#! print $ argv 2 /* prints the second argument passed to application */`
 
-```
+`#! print $ environ `HOME` /* prints the HOME environment variable */`
 
-**Note**: When a text is between two backticks, it is quoted, and it won't be evaluated if it is an Ekipp expression. Also, C-escape sequences work in quotes.
+**Note**: When a text is between two two single-quotes (`''`), it is quoted, and it won't be evaluated if it is an Ekipp expression. Also, C-escape sequences work in quotes. To use a literal single quote inside them, use `\'`.
 
 **Takeway**: Comments in Ekipp are between `/*` and `*/`.
 
 `printf` works like this:
 
-```
-#! printf $ `num %d %d` ( 1, 2 )
-
-```
+`#! printf $ ''num %d %d'' ( 1, 2 )`
 
 This will print `num 1 2`.
 
 #### Category D: Exec & Eval
 
-Eval, as stated above, evaluates an expression:
+<eval>, as stated above, evaluates an expression:
 
-```
-#! eval $ 2**2
-```
+`#! eval $ 2**2`
 
-`4`.
+This will print <4>.
 
 Almost all binary operators available in C are available in Ekipp. Negative/Positive operators are not available.
 
 Exec macro executes a command through opening a pipe:
 
-```
-#! exec $ `echo foobar`
-
-```
+`#! exec $ ''echo foobar''`
 
 `foobar` will be echoed in the output file.
 
-Delim works like this:
+<delimexec> works like this:
 
-```
-#! delimexec $ `awk '{ print $1; }'` | <== foo bar ==>
+`#! delimexec $ ''awk "{ print $1; }"'' | <== foo bar ==>`
 
-```
-
-The string between two backticks is passed to popen(3) as the command. The text between `<==` and `==>` (called 'delimiiters', hence 'delimexec') are passed to stdin. Anything comping out is passed to the current output.
+The string between two backticks is passed to popen(3) as the command. The text between `<==` and `==>` (called 'delimiters', hence 'delimexec') are passed to stdin. Anything comping out is passed to the current output.
 
 Ifexec works like this:
 
-```
-#! `foo` eq `bar` ? `echo foobar` : `echo barfoo`
-
-```
+`#! ''foo'' eq ''bar'' ? ''echo foobar'' : ''echo barfoo''`
 
 It's like the ternary operator in C. If `foo` is equal to `bar` it wll execute `echo foobar`, else, `echo barfoo`. The available operators are: **eq, ne, gt, ge, lt, le**. Only strings can be compared.
 
@@ -237,49 +193,38 @@ It's like the ternary operator in C. If `foo` is equal to `bar` it wll execute `
 
 There's exit which is invoked in these two ways:
 
-```
-#! exit $ 22 /* exit with status 22    */
-#! exit	     /* exit with EXIT_SUCCESS */
-``
+`#! exit $ 22 	      /* exit with status 22    */`
+
+`#! exit	     /* exit with EXIT_SUCCESS */`
 
 Datetime follows the rules of strftime(3) for formatting current local date and time:
 
-```
-#! datetime $ `%G %a`
-
-```
+`#! datetime $ ''%G %a''`
 
 ### Defining and Calling Macros
 
-'Define' defnes a new macro, 'defeval' first evaluates, then defines a macro.
+<define> defines a new macro, <defeval> first evaluates, then defines a macro.
 
-```
-@! define $ AMacro12_3 => `foobar #0 #1 #@`
-@! defeval $ AMacro345 => `#! eval $ 1+1\n`
+`@! define $ AMacro12_3 => ''foobar #0 #1 #@''`
 
-```
+`@! defeval $ AMacro345 => ''#! eval $ 1+1\n''`
 
-You can call a macro with arguments with:
+You can call a macro with arguments by:
 
-```
-This is called with args: $! ekipp123Abc ( barfoo, bar )
-
-```
+`This is called with args: $! ekipp123Abc ( barfoo, bar )`
 
 Without arguments:
 
-```
-@! define $ foobar => `1234bar`
+`@! define $ foobar => ''1234bar''
 
-$! foobar !$ is bar
+`$! foobar !$ is bar`
 
-```
+Makes: <1234bar is bar>
 
-Makes: `1234bar is bar`
 
 ## BUGS
 
-This software, for the most part, remains untested. Please report any bugs you encounter in Github: [https://github.com/Chubek/Ekipp](https://github.com/Chubek/Ekipp/Issues).
+Please report any bugs you encounter in Github: https://github.com/Chubek/Ekipp/Issues.
 
 ## HISTORY
 
