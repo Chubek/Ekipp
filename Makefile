@@ -1,10 +1,19 @@
-FILES := lex.yy.c yy.tab.c yy.tab.h ekipp body.tab.c body.tab.h
-
-
+FILES := lex.yy.c yy.tab.c yy.tab.h ekipp body.tab.c body.tab.h ekipp.1
 
 ekipp: errors.gen
 	gcc $(DEBUG) ekipp.c startup.c yy.tab.c lex.yy.c body.tab.c -lgc -ll -lm -lreadline -lunistring -o ekipp
  
+install: ekipp.1 ekipp.1.html
+	sudo cp ekipp /usr/local/bin/ekipp
+	sudo cp ekipp.1 /usr/local/share/man/man1/ekipp.1
+	sudo mkdir -p /usr/local/share/doc/ekipp
+	sudo cp ekipp.1.html /usr/local/share/doc/ekipp
+	sudo mandb
+
+ekipp.1: 
+	ronn --manual "Ekipp Macro Preprocessor" --organization "Chubak Bidpaa" ekipp.1.ronn
+
+
 errors.gen: body.tab.c
 	perl errgen.pl
 
