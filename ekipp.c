@@ -629,8 +629,9 @@ void do_on_exit(void) {
 }
 
 uint8_t* gc_strdup(uint8_t* s) {
+	uint8_t*	sc  = NULL;
 	size_t		len = u8_strlen(s);
-	uint8_t*	sc  = GC_MALLOC(sizeof(uint8_t) * (len + 1));
+	sc  		    = GC_MALLOC(sizeof(uint8_t) * (len + 1));
 	return memmove(&sc[0], &s[0], len * sizeof(uint8_t));
 }
 
