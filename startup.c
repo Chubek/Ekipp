@@ -66,10 +66,14 @@ int	sys_argc;
 char	yyout_path[FILENAME_MAX] = {0};
 char    input_files[FILENAME_MAX][MAX_INPUT] = {0};
 
+static void show_cc(void) {
+	puts("Ekipp Copyright (C) 2023 Chubak Bidpaa\n");
+	puts("This program comes with ABSOLUTELY NO WARRANTY\n\n");
+}
 
 static void hook_io(void) {
 	if (input_files[0][0] == 0 && isatty(STDIN_FILENO)) {
-		repl();
+		show_cc(); repl();
 		exit(EXIT_SUCCESS);
 	}
 	else if (input_files[0][0] == 0 && !isatty(STDIN_FILENO))
