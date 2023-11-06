@@ -69,7 +69,7 @@ LimClose	==>
 <CAL>[(]	     { BEGIN(ARG);     return *yytext; 	 }
 <CAL>[)]	     { BEGIN(INITIAL); return *yytext;   }
 
-<DEF,ENG>`	   BEGIN(QUO);
+<DEF,ENG>"''"	   BEGIN(QUO);
 <ENG>[$?:]         return *yytext;
 <ENG>[|]         { BEGIN(DLM1); return *yytext; }
 <DLM1>{LimOpen}    BEGIN(DLM2);
@@ -83,9 +83,10 @@ LimClose	==>
 			return DELIMITED;   }
 <DLM2>{LimClose}   BEGIN(INITIAL);
 
-<QUO>[^`]+  { yylval.sval = gc_strdup(&yytext[0]);
+<QUO>"\'"	  { yylval.sval[yyleng - 1] = '\'';    }
+<QUO>[^']+        { yylval.sval = gc_strdup(&yytext[0]);
 			return QUOTED;	    }
-<QUO>`	      BEGIN(ENG);
+<QUO>"''"            BEGIN(ENG);
 
 <DIV2>.   { fputc(*yytext, yyout); }
 <DIV2>\n  { fputc(*yytext, yyout); }
