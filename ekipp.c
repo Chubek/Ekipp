@@ -5,7 +5,6 @@
 #include <stdbool.h>
 #include <limits.h>
 #include <string.h>
-#include <wchar.h>
 #include <regex.h>
 #include <dirent.h>
 #include <stddef.h>
@@ -17,6 +16,8 @@
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
 
+#include <unistr.h>
+#include <unistdio.h>
 #include <gc.h>
 
 #include "ekipp.h"
@@ -27,29 +28,29 @@
 static struct LinkedList {
 	struct LinkedList*		next;
 	char*				name;
-	wchar_t*			value;
+	uint8_t*			value;
 } *Symtable;
 
-void insert_symbol(char* name, wchar_t* value) {
+void insert_symbol(char* name, uint8_t* value) {
 	node_t* 	node	= GC_MALLOC(sizeof(node_t));
 	node->next		= Symtable;
 	node->name		= gc_strdup(name);
-	node->value    	 	= gc_wcsdup(value);
+	node->value    	 	= gc_strdup(value);
 	Symtable		= node;
 }
 
-extern wchar_t* yydefeval(wchar_t* code);
+extern uint8_t* yydefeval(uint8_t* code);
 
-void defeval_insert(char* name, wchar_t* code) {
+void defeval_insert(char* name, uint8_t* code) {
 	node_t*		node  = GC_MALLOC(sizeof(node_t));
 	node->next	      = Symtable;
 	node->name	      = gc_strdup(name);
-	node->value	      = gc_wcsdup(yydefeval(code));
+	node->value	      = gc_strdup(yydefeval(code));
 	Symtable	      = node;
 }
 
 
-wchar_t* get_symbol(char* name) {
+uint8_t* get_symbol(char* name) {
 	node_t* 	node;
 	size_t 		len  = strlen(name);
 
@@ -78,17 +79,17 @@ void remove_symbol(char* name) {
 
 static struct DefStack {
 	char*		name;
-	wchar_t*	value;
+	uint8_t*	value;
 } Defstack[MAX_STACK];
 size_t	stack_pointer = 0;
 
-void push_stack(char* name, wchar_t* value) {
+void push_stack(char* name, uint8_t* value) {
 	Defstack[stack_pointer].name   = gc_strdup(name);
-	Defstack[stack_pointer].value  = gc_wcsdup(value);
+	Defstack[stack_pointer].value  = gc_strdup(value);
 	stack_pointer++;
 }
 
-wchar_t* get_stack_value(char* name) {
+uint8_t* get_stack_value(char* name) {
 	size_t len = strlen(name);
 	size_t ptr = stack_pointer;
 
@@ -100,7 +101,7 @@ wchar_t* get_stack_value(char* name) {
 	return NULL;
 }
 
-wchar_t* pop_stack(void) {
+uint8_t* pop_stack(void) {
 	return Defstack[--stack_pointer].value;
 }
 
@@ -110,7 +111,7 @@ wchar_t* pop_stack(void) {
 extern FILE*	yyout;
 
 FILE*		divert_streams[NUM_DIVERT];
-wchar_t*	divert_strings[NUM_DIVERT];
+uint8_t*	divert_strings[NUM_DIVERT];
 size_t		divert_lengths[NUM_DIVERT];
 FILE*		current_divert;
 DIR*		tmp_dir;
@@ -120,8 +121,8 @@ FILE*		null_divert;
 int		current_divert_idx;
 FILE*		hold;
 
-#define OUTPUT(ws) 		(fputws(ws, yyout))
-#define OUTPUT_DIVERT(ws) 	(fputws(ws, current_divert))
+#define OUTPUT(us) 		(fputs(us, yyout))
+#define OUTPUT_DIVERT(us) 	(fputs(us, current_divert))
 
 #define MAJOR_NULL 1
 #define MINOR_NULL 5
@@ -168,7 +169,7 @@ void set_divert(int n) {
 	} else {
 		if (!divert_streams[n])
 			divert_streams[n] = 
-				open_wmemstream(&divert_strings[n],
+				open_memstream((char**)&divert_strings[n],
 						&divert_lengths[n]);
 		current_divert 	   = divert_streams[n];
 		current_divert_idx = n;
@@ -183,7 +184,7 @@ void unset_divert(int n) {
 		EEXIT(ERR_NUM_DIVERT, ECODE_NUM_DIVERT);	
 	} else if (divert_strings[n] != NULL) {
 		fwrite(divert_strings[n], divert_lengths[n], 
-				sizeof(wchar_t), yyout);
+				sizeof(uint8_t), yyout);
 		free(divert_strings[n]);
 		divert_strings[n] = NULL;
 	}
@@ -220,8 +221,8 @@ regex_t		reg_cc;
 regmatch_t	reg_pmatch[NMATCH];
 char*		reg_input;
 char*		reg_pattern;
-wchar_t*	reg_matchmsg;
-wchar_t*	reg_nomatchmsg;
+uint8_t*	reg_matchmsg;
+uint8_t*	reg_nomatchmsg;
 
 void ifelse_regmatch(void) {
 	if (regcomp(&reg_cc, reg_pattern, REG_NOSUB) < 0) {
@@ -286,12 +287,12 @@ void yyin_search(void) {
 
 #define FLUSH_STDIO() (fflush(stdin), fflush(stdout), fflush(stderr))
 
-void ifelse_execmatch(wchar_t*		strcmp1,
-                       wchar_t*		strcmp2,
+void ifelse_execmatch(uint8_t*		strcmp1,
+                       uint8_t*		strcmp2,
 		       char*   		cmdtrue,
 		       char*		cmdfalse,
 		       int flag) {
-	int 	cmpres = wcscmp(strcmp1, strcmp2);
+	int 	cmpres = u8_strcmp(strcmp1, strcmp2);
 	char*	toexec = NULL;
 
 	switch (flag) {
@@ -354,7 +355,7 @@ void exec_command(char* exec_cmd) {
 	pclose(stream);
 }
 
-#define OUTPUT_DELIM(ws) (fputws(ws, delim_stream))
+#define OUTPUT_DELIM(ws) (fputs(ws, delim_stream))
 #define XNAME_MAX 	 8
 
 #ifdef __unix__
@@ -370,19 +371,19 @@ char		delim_rpath[FILENAME_MAX];
 char*		delim_command;	
 
 
-void init_delim_stream(wchar_t* text) {
+void init_delim_stream(uint8_t* text) {
 	memset(&delim_fpath[0], 'X', XNAME_MAX);
 	if (mkstemp(&delim_fpath[0]) < 0) {
 		EEXIT(ERR_DELIM_FPATH, ECODE_DELIM_FPATH);
 	}
 
-	sprintf(&delim_rpath[0], TMP_FMT, P_tmpdir, &delim_fpath[0]);
+	u8_sprintf(&delim_rpath[0], TMP_FMT, P_tmpdir, &delim_fpath[0]);
 
 	if (!(delim_stream = fopen(&delim_rpath[0], "w"))) {
 		EEXIT(ERR_DELIM_OPEN, ECODE_DELIM_OPEN);
 	}
 
-	if (fputws(text, delim_stream) < 0) {
+	if (fputs(text, delim_stream) < 0) {
 		EEXIT(ERR_DELIM_WRITE, ECODE_DELIM_WRITE);
 	}
 
@@ -410,16 +411,16 @@ void exec_delim_command(void) {
 }
 
 #define  ARG_MAX	255
-wchar_t* invoke_argv[ARG_MAX];
-wchar_t* joined_argv;
+uint8_t* invoke_argv[ARG_MAX];
+uint8_t* joined_argv;
 size_t	 invoke_argc = 0;
 size_t	 invoke_argn = 0;
 
-void invoke_addarg(wchar_t* arg) {
-	invoke_argv[invoke_argc++] = gc_wcsdup(arg);
+void invoke_addarg(uint8_t* arg) {
+	invoke_argv[invoke_argc++] = gc_strdup(arg);
 }
 
-wchar_t* invoke_getarg(size_t n) {
+uint8_t* invoke_getarg(size_t n) {
 	return invoke_argv[n];
 }
 
@@ -433,20 +434,20 @@ void invoke_printarg(size_t n) {
 	}
 }
 
-void invoke_joinargs(wchar_t* delim) {
+void invoke_joinargs(uint8_t* delim) {
 	size_t n = 0;
 	size_t l = 0;
 	size_t i = 0;
 	while (n < invoke_argc - 1) {
-		l = wcslen(invoke_argv[n]);
-		wcsncat(&joined_argv[i], &invoke_argv[n++][0], l);
+		l = u8_strlen(invoke_argv[n]);
+		u8_strncat(&joined_argv[i], &invoke_argv[n++][0], l);
 		i += l;
 	}
-	l = wcslen(invoke_argv[++n]);
-	wcsncat(&joined_argv[i], &invoke_argv[n][0], l);
+	l = u8_strlen(invoke_argv[++n]);
+	u8_strncat(&joined_argv[i], &invoke_argv[n][0], l);
 }
 
-void invoke_printargs(wchar_t* delim) {
+void invoke_printargs(uint8_t* delim) {
 	size_t n = 0;
 	while (n < invoke_argc - 1) {
 		OUTPUT(invoke_argv[n++]);
@@ -456,59 +457,47 @@ void invoke_printargs(wchar_t* delim) {
 	OUTPUT(invoke_argv[n]);
 }
 
-extern wchar_t* yybodyeval(wchar_t*);
-
-void invoke_macro(char* id) {
-	wchar_t* macro = get_symbol(id);
-	if (!macro)
-		macro  = get_stack_value(id);
-	if (!macro) {
-		EEXIT(ERR_UNKNOWN_MACRO, ECODE_UNKNOWN_MACRO);
-	}
-	yybodyeval(macro);
-}
-
-wchar_t*	fmt;
+uint8_t*	fmt;
 
 void print_formatted(void) {
-	wchar_t    wc;
+	uint8_t    wc;
 	int        i    = 0;
 	intmax_t   num;
-	wchar_t*   str;
+	uint8_t*   str;
 
 	while ((wc = *fmt++) && i < invoke_argc) {
-		if (wc == L'%' && *fmt != L'%') {
+		if (wc == '%' && *fmt != '%') {
 			switch (*fmt++) {
-				case L'd':
-				case L'i':
-				case L'l':
+				case 'd':
+				case 'i':
+				case 'l':
 					num = 
-					  wcstoimax(&invoke_argv[i++][0],
+					  strtoimax(&invoke_argv[i++][0],
 							NULL, 10);
-					fwprintf(yyout, L"%ld", num);
+					fprintf(yyout, "%ld", num);
 					break;
-				case L'x':
+				case 'x':
 					num = 
-					  wcstoimax(&invoke_argv[i++][0],
+					  strtoimax(&invoke_argv[i++][0],
 							NULL, 16);
-					fwprintf(yyout, L"%x", num);
+					fprintf(yyout, "%lx", num);
 					break;
-				case L'o':
+				case 'o':
 					num = 
-					   wcstoimax(&invoke_argv[i++][0],
+					   strtoimax(&invoke_argv[i++][0],
 							NULL, 8);
-					fwprintf(yyout, L"%o", num);
+					fprintf(yyout, "%lo", num);
 					break;
-				case L's':
+				case 's':
 					str = invoke_argv[i++];
-					fwprintf(yyout, L"%s", str);
+					fprintf(yyout, "%s", str);
 					break;
 				default:
 					break;
 			} 
 		}
 		else
-			fputwc(wc, yyout);
+			fputc(wc, yyout);
 	}
 
 }
@@ -542,11 +531,11 @@ void translit(uint8_t* input, uint8_t* srcmap, uint8_t* dstmap) {
 	}
 }
 
-void offset(wchar_t* input, wchar_t* sub) {
+void offset(uint8_t* input, uint8_t* sub) {
 	fprintf(yyout, getenv("EKIPP_OFFS_FMT") 
 			? getenv("EKIPP_OFFS_FMT")
 			: "%ld\n", 
-			wcsstr(input, sub) - input);
+			u8_strstr(input, sub) - input);
 }
 
 
@@ -639,87 +628,15 @@ void do_on_exit(void) {
 	free_set_diverts();
 }
 
-mbstate_t mbs;
-wchar_t*  wcs;
-
-#define SPACE		' '
-
-wchar_t* gc_wcsdup(wchar_t* ws) {
-	size_t		len = wcslen(ws) + 1;
-	wchar_t*	wsc = GC_MALLOC(sizeof(wchar_t) * len);
-	return memmove(&wsc[0], &ws[0], len * sizeof(wchar_t));
+uint8_t* gc_strdup(uint8_t* s) {
+	size_t		len = u8_strlen(s);
+	uint8_t*	sc  = GC_MALLOC(sizeof(uint8_t) * (len + 1));
+	return memmove(&sc[0], &s[0], len * sizeof(uint8_t));
 }
 
-wchar_t* gc_mbsdup(const char* s) {
-	memset(&mbs, 0, sizeof(mbstate_t));
-	size_t len 	    = strlen(s) + 1;
-	wchar_t*	wcs = GC_MALLOC(sizeof(wchar_t) * len);
-	mbsrtowcs(wcs, &s, len, &mbs);
-	return wcs;
+uint8_t* gc_strndup(uint8_t* s, size_t len) {
+	uint8_t*	sc  = GC_MALLOC(sizeof(uint8_t) * (len + 1));
+	return memmove(&sc[0], &s[0], len * sizeof(uint8_t));
 }
-
-char* gc_wcs2mbs(wchar_t* s) {
-	size_t  len 	= wcslen(s);
-	char*   dst 	= GC_MALLOC(len);
-
-	wcstombs(&dst[0], (const wchar_t*)s, len);
-	return dst;
-}
-
-char* gc_strdup(char* s) {
-	size_t 		len = strlen(s) + 1;
-	char*		wsc = GC_MALLOC(len);
-	return memmove(&wsc[0], &s[0], len);
-}
-
-char* gc_strndup(char* s, size_t len) {
-	char*		wsc = GC_MALLOC(len);
-	return memmove(&wsc[0], &s[0], len);
-}
-
-uint8_t* gc_ubydup(char* s) {
-	size_t		len = strlen(s);
-	uint8_t*	str = GC_MALLOC(len);
-	return memmove(&str[0], &s[0], len);
-}
-
-char* str_ltrim(char* str, int ch) {
-	char* ret = str;
-	while (strchr(ret, ch) != NULL)
-		ret = &ret[1];
-	return ret;
-}
-
-char* str_rtrim(char* str, int ch) {
-	char* ret = str;
-	while ((str = strrchr(ret, ch)) != NULL)
-		ret[str - ret] = '\0';
-	return ret;
-}
-
-wchar_t* wstr_ltrim(wchar_t* str, wchar_t ch) {
-	wchar_t* ret = str;
-	while (wcschr(ret, ch) != NULL)
-		ret = &ret[1];
-	return ret;
-}
-
-wchar_t* wstr_rtrim(wchar_t* str, wchar_t ch) {
-	wchar_t* ret = str;
-	while ((str = wcsrchr(str, ch)) != NULL)
-		ret[str - ret] = '\0';
-	return ret;
-}
-
-
-wchar_t* wstr_trim(wchar_t* str, wchar_t ch) {
-	return wstr_ltrim(wstr_rtrim(str, ch), ch);
-}
-
-char*  str_trim(char* str, int ch) {
-	return str_ltrim(str_rtrim(str, ch), ch);
-}
-
-
 
 
