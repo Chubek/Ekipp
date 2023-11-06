@@ -1,11 +1,12 @@
 %{
 #include <stdio.h>
-#include <wchar.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include <limits.h>
 
+#include <unistr.h>
+#include <unistdio.h>
 #include <gc.h>
 
 int 		yylex(void);
@@ -47,7 +48,7 @@ LimClose	==>
 %s DIV2
 %%
 	fflush(yyout);
-<*>\/\*	               BEGIN(COM);
+<*>"/*"	               BEGIN(COM);
 <ENG>::	               BEGIN(PTH);
 <DIV1>[$]	       return *yytext;
 <DIV1>[\n]           { BEGIN(DIV2);    return *yytext; }
@@ -64,7 +65,7 @@ LimClose	==>
 				  return IDENT;		}
 <DEF>"=>"	     return CHEVRON;
 <DEF>[$(]	     return *yytext;
-<CAL>[(]	     return *yytext;
+<CAL>[(]	     { BEGIN(ARG);     return *yytext; 	 }
 <CAL>[)]	     { BEGIN(INITIAL); return *yytext;   }
 
 <DEF,ENG>`	   BEGIN(QUO);
@@ -75,17 +76,14 @@ LimClose	==>
 <*><<EOF>>	  { yyterminate();   }
 
 <COM>[^\*\/]       REJECT;
-<COM>\*\/          BEGIN(INITIAL);
+<COM>"*/"          BEGIN(INITIAL);
 
-<DLM2>[^=>]+      { yylval.wval = gc_mbsdup(&yytext[0]);
+<DLM2>[^=>]+      { yylval.sval = gc_strdup(&yytext[0]);
 			return DELIMITED;   }
 <DLM2>{LimClose}   BEGIN(INITIAL);
 
-<QUO>[^`]+  { yylval.qval.wval = gc_mbsdup(&yytext[0]);
-	      yylval.qval.sval = gc_strdup(&yytext[0]);
-	      yylval.qval.uval = gc_ubydup(&yytext[0]);
-	      return QUOTED;
-	    }
+<QUO>[^`]+  { yylval.sval = gc_strdup(&yytext[0]);
+			return QUOTED;	    }
 <QUO>`	      BEGIN(ENG);
 
 <DIV2>.   { fputc(*yytext, yyout); }
@@ -103,11 +101,11 @@ LimClose	==>
 <ARG>{Decimal}  |
    {Hexal}	|
    {Octal}      |
-   {Binary}	 { yylval.wval = gc_mbsdup(&yytext[0]);
+   {Binary}	 { yylval.sval = gc_strdup(&yytext[0]);
    				return ARG_NUM;         }
-<ARG>{Ident}	 { yylval.sval = gc_strdup(&yytext[0]); 
+<ARG>"$"{Ident}	 { yylval.sval = gc_strdup(&yytext[1]); 
 				return ARG_IDENT;       }
-<ARG>[^$^(^)^,^ ]+ { yylval.wval = gc_mbsdup(&yytext[0]);
+<ARG>[^$^(^)^,^ ]+ { yylval.sval = gc_strdup(&yytext[0]);
 				return ARG_STR;         }
 
 
