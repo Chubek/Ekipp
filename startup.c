@@ -6,13 +6,15 @@
 #include <stdbool.h>
 #include <signal.h>
 #include <limits.h>
+#include <sysexits.h>
 #include <sys/sysmacros.h>
 #include <readline/readline.h>
 #include <readline/history.h>
 
-#include "ekipp.h"
-
+#include <unistr.h>
 #include <gc.h>
+
+#include "ekipp.h"
 
 #define MAX_TOKEN  8
 
@@ -20,17 +22,12 @@ extern char*     optarg;
 extern FILE*	 yyin;
 extern FILE* 	 yyout;
 extern int	 yyparse(void);
-extern wchar_t*  yydefeval(wchar_t*);
+extern uint8_t*  yydefeval(uint8_t*);
 
-static mbstate_t mbs;
+static uint8_t* yyreflect(const char* input) {
+	size_t   	len = u8_strlen(input);
+	uint8_t* 	wcs = GC_MALLOC(len * sizeof(uint8_t));
 
-static wchar_t* yyreflect(const char* input) {
-	memset(&mbs, 0, sizeof(mbstate_t));
- 
-	size_t   len = strlen(input);
-	wchar_t* wcs = GC_MALLOC(len * sizeof(wchar_t));
-
-	mbsrtowcs(wcs, &input, len, &mbs);
 	return yydefeval(wcs);
 }
 
@@ -77,9 +74,14 @@ static void hook_io(void) {
 	}
 	else if (input_files[0][0] == 0 && !isatty(STDIN_FILENO))
 		yyin = stdin;
-	else
+	else {
 		yyin = fopen(&input_files[0][0], "r");
-
+		if (!yyin) {
+			fprintf(stderr, "Error: file \"%s\" not found\n", 
+					&input_files[0][0]);
+			exit(EX_IOERR);
+		}
+	}
 	if (yyout_path[0] == 0)
 		yyout = stdout;
 	else
@@ -131,8 +133,9 @@ static void parse_options(void) {
 }
 
 int main(int argc, char** argv) {
+#ifndef __x86_64__
 	GC_INIT();
-
+#endif
 	sys_argc = argc;
 	sys_argv = argv;
 	
