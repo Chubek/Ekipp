@@ -1,0 +1,4 @@
+@! define $ ekipp123Abc => `#0 foo #1`
+
+This is called with args: $! ekipp123Abc ( barfoo, bar )
+
