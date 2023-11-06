@@ -141,8 +141,11 @@ int main(int argc, char** argv) {
 	init_hold();
 	on_startup();
 
-	if (yyparse())
+	if (yyparse()) {
+		putchar('\n');
 		exit(EXIT_FAILURE);
+	}
 
+	putchar('\n');
 	return EXIT_SUCCESS;
 }
