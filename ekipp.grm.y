@@ -39,8 +39,6 @@ uint8_t* yydefeval(uint8_t* code);
 
 %}
 
-%define parse.error verbose
-
 %token ENGAGE_PREFIX CALL_PREFIX CALL_SUFFIX DEF_PREFIX 
 %token DELIMITED QUOTED ESC_TEXT REGEX ARGNUM
 %token TRANSLIT LSDIR CATFILE DATETIME OFFSET INCLUDE
