@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <ctype.h>
+#include <limits.h>
 
 #include <gc.h>
 
@@ -31,18 +32,19 @@ uint8_t* body_code = NULL;
 }
 
 
-%token ARGNO BODY_TEXT
+%token ARGNO BODY_TEXT ESC_TEXT
 %token PUNCT JOIN_SPACE JOIN_COMMA
 %%
 
 body :
-     | '\n'
+     | '\n'		{ fputc('\n', yyout);		      }
      | text body
      ;
 
 
 text : argn
      | BODY_TEXT 	{ fputc($<cval>1, yyout); 	      }
+     | ESC_TEXT		{ fputc($<cval>1, yyout);	      }
      ;
 
 argn : '#' ARGNO	{ invoke_printarg($<ival>2);
@@ -61,6 +63,25 @@ argn : '#' ARGNO	{ invoke_printarg($<ival>2);
 #define MAX_NUM 	 32
 
 static int state = STATE_INIT;
+
+static char escape_map[SCHAR_MAX] = {
+	0, 0, 0, 0, 0, 0, 0, 0, 
+	0, 0, 0, 0, 0, 0, 0, 0, 
+	0, 0, 0, 0, 0, 0, 0, 0, 
+	0, 0, 0, 0, 0, 0, 0, 0, 
+	0, 0, 0, 0, 0, 0, 0, 0x27, 
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 
+	0, 0, 0, 0, 0, 63, 0, 0, 0, 
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 
+	0, 0, 0, 0, 0, 0, 0, 0x0b, 
+	0, 0, 0, 0, 0x07, 0x08, 
+	0, 0, 0x1b, 0xc, 0, 0, 0, 
+	0, 0, 0, 0, 0xa, 0, 0, 0, 0xd,
+	0x20, 0x9, 0, 0xb, 0, 0, 0, 
+	0, 0, 0, 0, 0,
+};
 
 static inline int yylex(void) {
 	while ((uc = *body_code++)) {
@@ -83,6 +104,16 @@ static inline int yylex(void) {
 				break;
 			case '\n':
 				return '\n';
+			case '\\':
+				if (escape_map[*body_code]) {
+					yylval.cval = 
+						escape_map[*body_code++];
+					return ESC_TEXT;
+				} else {
+					yylval.cval = uc;
+					return BODY_TEXT;
+				}
+				break;
 			case '0':
 			case '1':
 			case '2':
