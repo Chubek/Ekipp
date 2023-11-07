@@ -3,7 +3,7 @@ ekipp(1) -- Macro preprocessor langauge
 
 ## SYNOPSIS
 
-`ekipp` [-f INPUT_FILES...] [-o OUTPUT_FILE]
+`ekipp` [-f INPUT_FILES...] [-o OUTPUT_FILE] [-h]
 
 ## DESCRIPTION
 
@@ -11,9 +11,11 @@ Ekipp is a macro preprocessor language similar to m4(1) and gpp(1). It reads the
 
 ## OPTIONS
 
-* `-f`: following this flag must be the name of input files (several, optional).
+* `-f`: Following this flag must be the name of input files (several, optional).
 
-* `-o`: following this flag must be the name of the sole output file (also optional).
+* `-o`: Following this flag must be the name of the sole output file (also optional).
+
+* `-h`: Displays help
 
 ## SYNTAX
 
@@ -125,7 +127,7 @@ These two work similar to how they do in m4(1). There are 9 non-null diverts, an
 
 `This text will disappear into nothingness`
 
-The null divert is a char device with the same major and minor device number as /dev/null. So they act the same way. The device is created using mknod(2) in **/tmp**.
+The null divert is a char device with the same major and minor device number as null(5). So they act the same way. The device is created using mknod(2) in **/tmp**.
 
 Non-null divert works like this.
 
@@ -215,7 +217,7 @@ You can call a macro with arguments by:
 
 Without arguments:
 
-`@! define $ foobar => ''1234bar''
+`@! define $ foobar => ''1234bar''`
 
 `$! foobar !$ is bar`
 

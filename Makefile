@@ -1,13 +1,19 @@
-FILES := lex.yy.c yy.tab.c yy.tab.h ekipp body.tab.c body.tab.h ekipp.1
+FILES := lex.yy.c yy.tab.c yy.tab.h body.tab.c body.tab.h ekipp.1 ekipp.1.html
 
 ekipp: errors.gen
 	gcc $(DEBUG) ekipp.c startup.c yy.tab.c lex.yy.c body.tab.c -lgc -ll -lm -lreadline -lunistring -o ekipp
- 
-install: ekipp.1 ekipp.1.html
+
+
+.PHONY : dist
+dist:
+	gcc $(DEBUG) ekipp.c startup.c yy.tab.c lex.yy.c body.tab.c -lgc -ll -lm -lreadline -lunistring -o ekipp
+
+install: ekipp.1
 	sudo cp ekipp /usr/local/bin/ekipp
 	sudo cp ekipp.1 /usr/local/share/man/man1/ekipp.1
 	sudo mkdir -p /usr/local/share/doc/ekipp
 	sudo cp ekipp.1.html /usr/local/share/doc/ekipp
+	sudo cp -r EXAMPLES /usr/local/share/doc/ekipp
 	sudo mandb
 
 ekipp.1: 
@@ -34,4 +40,4 @@ lex.yy.c: clean
 
 .PHONY : clean
 clean: 
-	rm -f $(FILES)
+	rm -f $(FILES) ekipp
