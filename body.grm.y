@@ -48,7 +48,7 @@ text : argn
 
 argn : ARGNO		{ invoke_printarg($<ival>1);           }
      | '[' ARGNO 
-       '-' ARGNO ']'	{ invoke_printrng($<ival>1, $<ival>3); }
+     	   ARGNO ']'	{ invoke_printrng($<ival>1, $<ival>3); }
      | JOIN_SPACE	{ invoke_printargs(" ");	       }
      | JOIN_COMMA	{ invoke_printargs(", ");	       }
      ;
