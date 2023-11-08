@@ -1,0 +1,26 @@
+#define YYCURSOR 	body_code
+
+
+static inline int yylex(void) {
+	uint8_t* YYCTXMARKER = NULL;
+	const char *num;
+
+	/*!stags:re2c format = 'const char *@@;\n'; */
+	
+	/*!re2c
+		re2c:yyfill:enable = 0;
+		re2c:define:YYCTYPE = uint8_t;
+
+		"#" @num [0-9]+ { yylval.ival = atoi(num); 
+						return ARGNO;      }
+		"#@"		{ return JOIN_SPACE;	}
+		"#*"		{ return JOIN_COMMA;    }
+		"\\" / [#']	{ yylval.cval = *YYCURSOR; 
+						return ESC_TEXT;  }
+		[\x00]		{ return YYEOF; 	}
+		*		{ yylval.cval = *(YYCURSOR - 1); 
+						return BODY_TEXT; }
+
+	*/
+
+}
