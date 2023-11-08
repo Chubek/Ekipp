@@ -15,8 +15,10 @@ static inline int yylex(void) {
 						return ARGNO;      }
 		"#@"		{ return JOIN_SPACE;	}
 		"#*"		{ return JOIN_COMMA;    }
-		"\\" / [#']	{ yylval.cval = *YYCURSOR; 
+		"\\" / [#'\[\]]	{ yylval.cval = *YYCURSOR; 
 						return ESC_TEXT;  }
+		"["		{ return '['; 		}
+		"]"		{ return ']';		}
 		[\x00]		{ return YYEOF; 	}
 		*		{ yylval.cval = *(YYCURSOR - 1); 
 						return BODY_TEXT; }
