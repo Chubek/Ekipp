@@ -19,6 +19,18 @@ FILE*		yyin;
 extern char	input_files[FILENAME_MAX][MAX_INPUT];
 static int	input_idx = 0;
 
+#define TOK_MAX	2
+
+uint8_t engage_prefix_token[TOK_MAX + 1] = {0};
+uint8_t define_prefix_token[TOK_MAX + 1] = {0};
+uint8_t call_prefix_token[TOK_MAX + 1]   = {0};
+uint8_t call_suffix_token[TOK_MAX + 1]   = {0};
+uint8_t quote_left_token[TOK_MAX + 1]    = {0};
+uint8_t quote_right_token[TOK_MAX + 1]   = {0};
+uint8_t comment_left_token[TOK_MAX + 1]  = {0};
+uint8_t comment_right_token[TOK_MAX + 1] = {0};
+uint8_t delim_left_token[TOK_MAX + 1]    = {0};
+uint8_t delim_right_token[TOK_MAX + 1]   = {0};
 
 #include "ekipp.h"
 #include "yy.tab.h"
@@ -29,8 +41,6 @@ Hexal		[0xX][a-fA-F0-9]+
 Octal		[0oO][0-7]+
 Binary		[0bB][0-1]+
 Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
-LimOpen		<==
-LimClose	==>
 
 %x ESC
 %x ENG
@@ -49,20 +59,75 @@ LimClose	==>
 %s DIV2
 %%
 	fflush(yyout);
-<*>"/*"	               BEGIN(COM);
+	uint8_t tok[TOK_MAX + 1] = {0};
+	tok[0] = fgetc(yyin);
+	tok[1] = fgetc(yyin);
+	uint8_t chr = 0;
+	if (yy_start == INITIAL) {
+		if (u8_strncmp(&engage_prefix_token[0], &tok[0], TOK_MAX))
+		   { BEGIN(ENG); return ENGAGE_PREFIX; }
+		if (u8_strncmp(&define_prefix_token[0], &tok[0], TOK_MAX))
+		   { BEGIN(DEF); return DEF_PREFIX; }
+	 	if (u8_strncmp(&call_prefix_token[0], &tok[0], TOK_MAX))
+		   { BEGIN(CAL); return CALL_PREFIX; }
+	 	if (u8_strncmp(&call_suffix_token[0], &tok[0], TOK_MAX))
+		   { BEGIN(INITIAL); return CALL_SUFFIX; }
+	 	if (u8_strncmp(&quote_left_token[0], &tok[0], TOK_MAX))
+		   { BEGIN(QUO); yylval.sval = NULL; goto endappend; }
+	 	if (u8_strncmp(&comment_left_token[0], &tok[0], TOK_MAX))
+		   { BEGIN(COM);  goto endappend; }
+	 	if (u8_strncmp(&delim_left_token[0], &tok[0], TOK_MAX))
+		   { BEGIN(DLM2); yylval.sval = NULL;  goto endappend; }
+	} else if (yy_start == QUO) {
+		int i = 0;
+		while ((tok[0] = fgetc(yyin), tok[1] = fgetc(yyin))) {
+			if (!u8_strncmp(&quote_right_token[0],
+				&tok[0], TOK_MAX))
+				return QUOTED;
+
+			i += 2;
+			yylval.sval = GC_REALLOC(yylval.sval, i);
+			yylval.sval[i - 1] = tok[1];
+			yylval.sval[i - 2] = tok[0];
+		}
+	} else if (yy_start == DLM2) {
+		int i = 0;
+		while ((tok[0] = fgetc(yyin), tok[1] = fgetc(yyin))) {
+			if (!u8_strncmp(&delim_right_token[0],
+				&tok[0], TOK_MAX))
+				return DELIMITED;
+
+			i += 2;
+			yylval.sval = GC_REALLOC(yylval.sval, i);
+			yylval.sval[i - 1] = tok[1];
+			yylval.sval[i - 2] = tok[0];
+		}
+	} else if (yy_start == COM) {
+		int i = 0;
+		while ((tok[0] = fgetc(yyin), tok[1] = fgetc(yyin))) {
+			if (!u8_strncmp(&comment_right_token[0],
+				&tok[0], TOK_MAX)) {
+					BEGIN(INITIAL);
+				}
+		}
+	}
+
+
+	ungetc(tok[0], yyin);
+	ungetc(tok[1], yyin);
+	
+	endappend:
+  
+
 <ENG>::	               BEGIN(PTH);
 <DIV1>[$]	       return *yytext;
 <DIV1>[\n]           { BEGIN(DIV2);    return *yytext; }
-<INITIAL,DIV2>^"#!"  { BEGIN(ENG);     return ENGAGE_PREFIX; }
 <ENG,EVL,DEF>[\n]+   { BEGIN(INITIAL); return *yytext;   }
 
 <DEF,CAL>[\r\n]	     REJECT;
-<CAL>"!$"	     { BEGIN(INITIAL); return CALL_SUFFIX; }
 <DEF>define	     return DEFINE;
 <DEF>defeval	     return DEFEVAL;
 <DEF>exchange	     return EXCHANGE;
-<INITIAL>"@!"	     { BEGIN(DEF); return DEF_PREFIX;  }
-<INITIAL>"$!"	     { BEGIN(CAL); return CALL_PREFIX; }
 <DEF,CAL>{Ident}     { yylval.sval = gc_strdup(&yytext[0]);
 				  return IDENT;		}
 <DEF>"=>"	     return CHEVRON;
@@ -71,24 +136,10 @@ LimClose	==>
 <CAL>[(]	     { BEGIN(ARG);     return *yytext; 	 }
 <CAL>[)]	     { BEGIN(INITIAL); return *yytext;   }
 
-<DEF,ENG>"''"	   BEGIN(QUO);
 <ENG>[$?:]         return *yytext;
 <ENG>[|]         { BEGIN(DLM1); return *yytext; }
-<DLM1>{LimOpen}    BEGIN(DLM2);
 
 <*><<EOF>>	  { yyterminate();   }
-
-<COM>[^\*\/]       REJECT;
-<COM>"*/"          BEGIN(INITIAL);
-
-<DLM2>[^=>]+      { yylval.sval = gc_strdup(&yytext[0]);
-			return DELIMITED;   }
-<DLM2>{LimClose}   BEGIN(INITIAL);
-
-<QUO>\\'	  { yylval.sval[yyleng - 1] = '\'';    }
-<QUO>[^']+        { yylval.sval = gc_strdup(&yytext[0]);
-			return QUOTED;	    }
-<QUO>"''"            BEGIN(ENG);
 
 <DIV2>.   { fputc(*yytext, yyout); }
 <DIV2>\n  { fputc(*yytext, yyout); }
