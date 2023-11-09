@@ -39,14 +39,14 @@ uint8_t* yydefeval(uint8_t* code);
 
 %token ENGAGE_PREFIX CALL_PREFIX CALL_SUFFIX DEF_PREFIX 
 %token DELIMITED QUOTED ESC_TEXT REGEX ARGNUM
-%token TRANSLIT LSDIR CATFILE DATETIME OFFSET INCLUDE
+%token TRANSLIT LSDIR CATFILE DATETIME OFFSET INCLUDE PATSUB SUBSTITUTE
 %token EXEC EVAL REFLECT DNL LF EXEC_DELIM IFEXEC
 %token ARG_NUM ARG_IDENT ARG_STR IDENT
 %token DIVERT UNDIVERT
 %token EXIT ERROR PRINT PRINTF ENVIRON FILEPATH SEARCH ARGV CURRENT
-%token GE LE EQ NE SHR SHL POW INCR DECR IFEX CHEVRON
+%token GE LE EQ NE SHR SHL POW INCR DECR IFEX CHEVRON XCHN_MARK
 %token DIVNUM NUM
-%token DEFEVAL DEFINE
+%token DEFEVAL DEFINE EXCHANGE
 
 %left  '*' '/' '%' POW
 %left  '+' '-'
@@ -88,6 +88,9 @@ main : exit
      | eval
      | defn
      | call
+     | subs
+     | pats
+     | xchn
      | '\n'
      ;
 
@@ -98,6 +101,11 @@ call : CALL_PREFIX
         IDENT CALL_SUFFIX      { fprintf(yyout, "%s", 
 					get_symbol($<sval>2));   }
      ;
+
+xchn : DEF_PREFIX
+       EXCHANGE '$' IDENT 
+       XCHN_MARK IDENT '\n'     { exchange_symbol($<sval>2, 
+       						  $<sval>4);	 }
 
 defn : DEF_PREFIX
      	DEFINE '$'
@@ -199,6 +207,20 @@ incl : ENGAGE_PREFIX
 pdnl : ENGAGE_PREFIX
      	DNL '\n'	       { dnl();			       } 
      ;
+
+pats : ENGAGE_PREFIX
+       PATSUB '$'
+       QUOTED '?'
+       QUOTED ':'
+       QUOTED '\n'	      { patsub($<sval>4, 
+       					$<sval>6, $<sval>8);   }
+
+subs : ENGAGE_PREFIX
+       SUBSTITUTE '$'
+       QUOTED '?'
+       QUOTED ':'
+       QUOTED '\n'	      { subst($<sval>4, 
+       					$<sval>6, $<sval>8);   }
 
 ifex : ENGAGE_PREFIX
      	QUOTED IFEX QUOTED 
