@@ -17,14 +17,21 @@
 TCCState* 	transpile_state 		= NULL;
 FILE*		transpile_stream		= NULL;
 char		transpile_path[FILENAME_MAX] 	= {0};
+char*		transpile_argv[ARG_MAX] 	= {NULL};
+int		transpile_argc 			= 0;
+
 
 #ifdef __unix__
 #define TEMPLATE	"%s/XXXXX"
 #else
 #define TEMPLATE	"%s\\XXXXX"
 
+void transpile_addarg(char* arg) {
+	transpile_argv[transpile_argc++] = gc_strdup(arg);
+}
+
 void transpile_run(void) {
-	tcc_run(transpile_state, 0, NULL);
+	tcc_run(transpile_state, transpile_argc, transpile_argv);
 }
 
 static void transpile_add_includes(void) {
@@ -35,6 +42,7 @@ static void transpile_add_includes(void) {
 	tcc_add_sysinclude_path(transpile_state, "string.h");
 	tcc_add_sysinclude_path(transpile_state, "gc.h");
 	tcc_add_sysinclude_path(transpile_state, "unistr.h");
+	tcc_add_sysinclude_path(transpile_state, "sys/syscall.h");
 }
 
 static void transpile_add_libraries(void) {
@@ -60,6 +68,8 @@ void init_transpile_state(void) {
 	transpile_add_includes();
 	transpile_add_libraries();
 
+	write_notify_decl();
+
 }
 
 static void unlink_transpile_file(void) {
@@ -73,7 +83,10 @@ void reset_transpile_state(void) {
 		return;
 	tcc_delete(transpile_state);
 	memset(&transpile_path, 0, FILENAME_MAX);
+	memset(&transpile_argv[0], NULL, ARG_MAX);
 	transpile_stream = NULL;
+	transpile_argc	 = 0;
+	
 }
 
 void write_variable(char* type, char* name, char* init) {
@@ -230,4 +243,28 @@ void write_notify_close(void) {
 	fprintf(transpile_stream, "mq_close(mqdf);");
 }
 
+void write_string_const(char* name, uint8_t* string) {
+	u8_fprintf(transpile_stream, "const uint8_t* %s = %s;",
+			name, string);
+}
 
+void write_define(char* name, char* value) {
+	fprintf(transpile_stream, "#defne %s   %s\n",
+			name, value);
+}
+
+void write_syscall(char* name, char* args) {
+	fprintf(transpile_stream, "syscall(SYS_%s, %s);",
+			name, args);
+}
+
+void write_main_function(char* hook) {
+	fprintf(transpile_stream, "void on_exit_do(void) { ");
+	write_notify_close();
+	fprintf(transpile_stream, " }");
+	fprintf(transpile_stream, "int main(int argc, char** argv) { ");
+	write_notify_open();
+	fprintf(transpile_stream, "atexit(on_exit_do);");
+	fprintf(transpile_stream, "%s(argc, argv);", hook);
+	fprintf(transpile_stream, " }");
+}
