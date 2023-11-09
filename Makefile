@@ -39,7 +39,7 @@ yy.tab.h: lex.yy.c
 	yacc -b yy -d ekipp.grm.y
 
 lex.yy.c: clean
-	lex ekipp.grm.l
+	lex --debug ekipp.grm.l
 
 .PHONY : clean
 clean: 

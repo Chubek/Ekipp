@@ -67,6 +67,21 @@ char**	sys_argv;
 int	sys_argc;
 char	yyout_path[FILENAME_MAX] = {0};
 char    input_files[FILENAME_MAX][MAX_INPUT] = {0};
+int 	inidx = 0;
+
+
+#define INCLUDE_PATHS_SEP ":"
+
+static void add_includes(void) {
+	char* includes = getenv("EKIPP_INCLUDE_PATHS");
+	if (!includes)
+		return;
+	for (uint8_t* tok = strtok(includes, INCLUDE_PATHS_SEP); 
+			tok != NULL; 
+			tok = strtok(NULL, INCLUDE_PATHS_SEP)) {
+		strncpy(&input_files[inidx++][0], &tok[0], strlen(tok));
+	}
+}
 
 static void show_cc(void) {
 	puts("Ekipp Copyright (C) 2023 Chubak Bidpaa");
@@ -97,14 +112,13 @@ static void hook_io(void) {
 
 static void parse_options(void) {
 	int c;
-	int inidx = 0;
 
 	while (true) {
 		static char* short_options =  "f:o:h";
 
 		static struct option long_options[] = {
-			{ "input-script", required_argument, 0, 'f'},
-			{ "yyout-file",   required_argument, 0, 'o'},
+			{ "input-scripts", required_argument, 0, 'f'},
+			{ "out-file",   required_argument, 0, 'o'},
 			{ "help",	  no_argument,       0, 'h'},
 			{ 0,              0,                 0,  0 }
 
