@@ -101,6 +101,10 @@ void write_function(char* name, char* args, char* body) {
 			name, args, body);
 }
 
+void write_invoke(char* name, char* args) {
+	fprintf(transpile_stream, "%s(%s);", name, args);
+}
+
 void write_if(char* cond, char* body) {
 	fprintf(transpile_stream, "if (%s) { %s; }", cond, body);
 }
@@ -261,7 +265,7 @@ void write_syscall(char* name, char* args) {
 			name, args);
 }
 
-void write_main_function(char* hook) {
+void write_main_function(char* hook, char* oracle) {
 	fprintf(transpile_stream, "void on_exit_do(void) { ");
 	write_notify_close();
 	fprintf(transpile_stream, " }");
@@ -269,6 +273,7 @@ void write_main_function(char* hook) {
 	write_notify_open();
 	fprintf(transpile_stream, "atexit(on_exit_do);");
 	fprintf(transpile_stream, "%s(argc, argv);", hook);
+	write_notify_send(oracle, 0);
 	fprintf(transpile_stream, " }");
 }
 
