@@ -37,8 +37,8 @@ extern  uint8_t*  YYCURSOR;
 uint8_t* yydefeval(uint8_t* code);
 %}
 
-%token ENGAGE_PREFIX CALL_PREFIX CALL_SUFFIX DEF_PREFIX 
-%token DELIMITED QUOTED ESC_TEXT REGEX ARGNUM
+%token ENGAGE_PREFIX CALL_PREFIX CALL_SUFFIX DEF_PREFIX DLEFT DRIGHT QLEFT QRIGHT
+%token ENCLOSED ESC_TEXT REGEX ARGNUM
 %token TRANSLIT LSDIR CATFILE DATETIME OFFSET INCLUDE PATSUB SUBSTITUTE
 %token EXEC EVAL REFLECT DNL LF EXEC_DELIM IFEXEC
 %token ARG_NUM ARG_IDENT ARG_STR IDENT
@@ -59,6 +59,8 @@ uint8_t* yydefeval(uint8_t* code);
 }
 
 %type <ival> expr
+%type <sval> quot
+%type <sval> dlmt
 
 %start prep
 %%
@@ -109,13 +111,13 @@ xchn : DEF_PREFIX
 
 defn : DEF_PREFIX
      	DEFINE '$'
-	IDENT CHEVRON
-	QUOTED		       { insert_symbol($<sval>4, 
+	IDENT CHEVRON 
+	quot		       { insert_symbol($<sval>4, 
 					$<sval>6);		}
      | DEF_PREFIX
      	DEFEVAL '$'
 	IDENT CHEVRON
-	QUOTED		       { defeval_insert($<sval>4,
+	quot		       { defeval_insert($<sval>4,
 					$<sval>6);		}
      ;
 
@@ -131,19 +133,19 @@ escp : '\\' ESC_TEXT	      { fputs($<sval>2, yyout);	}
 
 srch : ENGAGE_PREFIX
          SEARCH '$'
-	  QUOTED
+	  quot
 	  FILEPATH '\n'     {   reg_pattern = $<sval>4;
 	  			open_search_close($<sval>5);   }
      | ENGAGE_PREFIX
          SEARCH '$' 
-	  QUOTED
+	  quot
 	  CURRENT '\n'      { 	reg_pattern = $<sval>4;
 	  			yyin_search();			}
      ;
 
 prnf : ENGAGE_PREFIX
          PRINTF '$'
-	  QUOTED { fmt = $<sval>4; } '(' args ')' 
+	  quot { fmt = $<sval>4; } '(' args ')' 
 	  		'\n' { print_formatted(); }
      ;
 
@@ -160,7 +162,7 @@ argu : ARG_NUM			{ invoke_addarg($<sval>1); }
 
 prnt : ENGAGE_PREFIX
      	PRINT '$' ENVIRON 
-		QUOTED  '\n'    { print_env($<sval>5);	}
+		quot  '\n'    { print_env($<sval>5);	}
      | ENGAGE_PREFIX
         PRINT '$' ARGV
 	        ARGNUM  '\n'    { print_argv($<ival>5);		}
@@ -168,17 +170,17 @@ prnt : ENGAGE_PREFIX
 
 trns : ENGAGE_PREFIX
         TRANSLIT '$'
-	QUOTED '>'
-	QUOTED '&'
-	QUOTED '\n'	       { translit($<sval>4,  
+	quot '>'
+	quot '&'
+	quot '\n'	       { translit($<sval>4,  
 					$<sval>6,  
 					$<sval>8);		}
      ;
 
 offs : ENGAGE_PREFIX
         OFFSET '$'
-	QUOTED '?'
-	QUOTED '\n'            { offset($<sval>4, 
+	quot '?'
+	quot '\n'            { offset($<sval>4, 
 				         $<sval>6);	}
 
      ;
@@ -190,7 +192,7 @@ ldir : ENGAGE_PREFIX
 
 date : ENGAGE_PREFIX
      	DATETIME '$'
-	QUOTED '\n'            { format_time($<sval>4);   }
+	quot '\n'            { format_time($<sval>4);   }
      ;
 
 catf : ENGAGE_PREFIX
@@ -210,22 +212,22 @@ pdnl : ENGAGE_PREFIX
 
 pats : ENGAGE_PREFIX
        PATSUB '$'
-       QUOTED '?'
-       QUOTED ':'
-       QUOTED '\n'	      { patsub($<sval>4, 
+       quot '?'
+       quot ':'
+       quot '\n'	      { patsub($<sval>4, 
        					$<sval>6, $<sval>8);   }
 
 subs : ENGAGE_PREFIX
        SUBSTITUTE '$'
-       QUOTED '?'
-       QUOTED ':'
-       QUOTED '\n'	      { subst($<sval>4, 
+       quot '?'
+       quot ':'
+       quot '\n'	      { subst($<sval>4, 
        					$<sval>6, $<sval>8);   }
 
 ifex : ENGAGE_PREFIX
-     	QUOTED IFEX QUOTED 
-     	 '?' QUOTED
-	 ':' QUOTED '\n'      { ifelse_execmatch($<sval>2,
+     	quot IFEX quot 
+     	 '?' quot
+	 ':' quot '\n'      { ifelse_execmatch($<sval>2,
 					$<sval>4,
 					$<sval>6,
 					$<sval>8,
@@ -234,9 +236,9 @@ ifex : ENGAGE_PREFIX
 
 ifre : ENGAGE_PREFIX
      	REGEX 	'$' 
-	QUOTED  '?'
-	QUOTED	':'
-	QUOTED	'\n'		{ reg_pattern    = $<sval>2;
+	quot  '?'
+	quot	':'
+	quot	'\n'		{ reg_pattern    = $<sval>2;
 				  reg_input      = $<sval>4;
 				  reg_matchmsg 	 = $<sval>6;
 				  reg_nomatchmsg = $<sval>8;
@@ -256,8 +258,8 @@ divr : ENGAGE_PREFIX
      ;
 
 dlim : ENGAGE_PREFIX
-	EXEC_DELIM '$' QUOTED
-	  '|' DELIMITED '\n'    { delim_command = $<sval>4;
+	EXEC_DELIM '$' quot
+	  '|' dlmt '\n'    { delim_command = $<sval>4;
 	  			  init_delim_stream($<sval>6);
 				  exec_delim_command();	         }
      ;
@@ -266,8 +268,13 @@ dlim : ENGAGE_PREFIX
 
 exec : ENGAGE_PREFIX
      	EXEC '$' 
-	     QUOTED '\n'	{ exec_command($<sval>4);	 }
+	     quot '\n'	       { exec_command($<sval>4);	 }
 
+     ;
+
+dlmt : DLEFT ENCLOSED DRIGHT   { $$ = gc_strdup($<sval>2);       }
+
+quot : QLEFT ENCLOSED QRIGHT   { $$ = gc_strdup($<sval>2);	 }
      ;
 
 eval : ENGAGE_PREFIX 
