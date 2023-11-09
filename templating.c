@@ -42,117 +42,83 @@ void reset_transpile_state(void) {
 	transpile_stream = NULL;
 }
 
-#define ARGUMENT_MAX 128
-
-static struct FunctionSignature {
-	enum ArgType {
-		VOID = 1, UINT = 2, INT    = 3, 
-		PTR  = 4,  STR = 5, STRUCT = 6,
-	} return_type, 
-		arg_types[ARGUMENT_MAX];
-	char* 	arg_fields[ARGUMNET_MAX];
-	char*	arg_names[ARGUMENT_MAX];
-	char*	func_name;
-	int	argc;
-} FuncSig;
-typedef enum ArgType argtype_t;
-
-void reset_fnsig(void) {
-	memset(FuncSig, 0, sizeof(FuncSig);
+void write_variable(char* type, char* name, char* init) {
+	fprintf(transpile_stream, "%s %s = %s;", type, name);
 }
 
-void addarg_fnsig(argtype_t type, char* name, char* fields) {
-	FuncSig.arg_types[FnSignautre.argc]  = type;	
-	FuncSig.arg_fields[FnSignautre.argc] = gc_strdup(fields);	
-	FuncSig.arg_names[FnSignautre.argc]  = gc_strdup(name);	
-	FuncSig.argc++;
+void write_function(char* name, char* args, char* body) {
+	fprintf(transpile_stream, "void %s (%s, void** __result){ %s; }",
+			name, args, body);
 }
 
-void fnname_fnsig(char* name) {
-	FuncSig.func_name = gc_strdup(name);
+void write_if(char* cond, char* body) {
+	fprintf(transpile_stream, "if (%s) { %s; }", cond, body);
 }
 
-void retrtype_fnsig(argtype_t type) {
-	FuncSig.return_type = type;
+void write_elseif(char* cond, char* body) {
+	fprintf(transpile_stream, "else if (%s) { %s; }", cond, body);
 }
 
-#define MAX_NAME 32
+void write_else(char* body) {
+	fprintf(transpile_stream, "else { %s; }", body);
+}
 
-void argfld_fnsig(char* argfld) {
-	char  chr     = 0;
-	char* name[MAX_NAME + 1] = {0};
-	int   printed = 0;
-	char* retr = GC_MALLOC(strlen(argfld) * 2048);
-	while ((chr = *argfld++)) {
-		if (chr == '%') {
-			memset(&name[0], 0, MAX_NAME + 1);
-			switch(*argfld++) {
-				case 'i':
-					sscanf(&argfld[0], 
-						 "%s;", &name[0]);
-					printed = 
-					   sprintf(&retr[printed],
-						"long long %s;",
-						&name[0]);
-					break;
-				case 'u':
-					sscanf(&argfld[0], 
-						"%s;", &name[0]);
-					printed = 
-					   sprintf(&retr[printed],
-						"unsigned long long %s;",
-						&name[0]);
-					break;
-				case 's':
-					sscanf(&argfld[0], 
-						"%s;", &name[0]);
-					printed = 
-					   sprintf(&retr[printed],
-						"unsigned char* %s;",
-						&name[0]);
-					break;
-				case 'v':
-					sscanf(&argfld[0],
-						"%s;", &name[0]);
-					printed = 
-					   sprintf(&retr[printed],
-						"void* %s;",
-						&name[0]);
-					break;
-				default:
-					break;
+void write_forloop(char* start, char* cond, char* step, char* body) {
+	fprintf(transpile_stream, "for (%s;%s;%s) { %s; }",
+			start, cond, step, body);
+}
 
-			}
+void write_whileloop(char* cond, char* body) {
+	fprintf(transpile_stream, "while (%s) { %s; }", 
+			cond, body);
+}
+
+void write_goto(char* label, char* after) {
+	fprintf(transpile_stream, "%s: %s", label, after);
+}
+
+static struct TemplateSymTable {
+	symtab_t*	next;
+	uint8_t* 	name;
+	void*		value;
+	enum Symtype { INT, FLOAT, 
+	   STR, PTR, }  type;
+} *Symtable;
+
+
+void tmpl_add_symbol(uint8_t* name, void* value, enum Symtype type) {
+	symtab_t*	node 	= GC_MALLOC(sizeof(symtab_t));
+	node			= Symtable;
+	node->name		= gc_strdup(name);
+	node->value		= gc_strdup(value);
+	Symtable		= node;
+}
+
+void tmpl_get_symbol(uint8_t* name, void** value, enum Symtype* type) {
+	for (symtab_t* node = Symtable;
+			node != NULL;
+			node = Symtable->next) {
+		if (u8_strcmp(node->name, name)) {
+			*value = node->value;
+			*type  = node->type;
+			return;
 		}
 	}
-	return retr;
+
 }
 
-static char* typefmt_map[] = {
-	"void %s", "unsigned long long %s", "long long %s"
-	"void* %s"  "unsigned char* %s",    "struct { %s } %s",
-};
-
-void serialize_fnsig(void) {
-	fputc('\n', transpile_stream);
-	fprintf(transpile_stream, typefmt_map[FuncSig.return_type],
-		FuncSig.func_name);
-	fputc('(', transpile_stream);
-	int i = 0;
-	while (i < FuncSig.argc) {
-		fprintf(transpile_stream,
-				typefmt_map[FnSignautre.arg_type[i]],
-				FuncSig.arg_fields[i] 
-				  ? argfld_fnsig(FuncSig.arg_fields[i])
-				  : " ",
-				FuncSig.arg_names[i++]);
-		if (i + 1 != FuncSig.argc)
-			fputc(',', transple_file);
+void tmpl_delete_symbol(uint8_t* name) {
+	for (symtab_t* node = Symtable;
+			node != NULL;
+			node = Symtable->next) {
+		if (u8_strcmp(node->name, name)) {
+			node = NULL;
+			return;
+		}
 	}
-	fputc(')', transpile_stream);
-}
 
-void invoke
+
+}
 
 
 
