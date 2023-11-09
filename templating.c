@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <limits.h>
 #include <mqueue.h>
+#include <time.h>
+#include <unistd.h>
 
 #include <gc.h>
 #include <unistr.h>
@@ -33,6 +35,10 @@ void init_transpile_state(void) {
 	transpile_stream  = fopen(&transpile_path[0], "w+");
 	transpile_state = tcc_new();
 
+}
+
+void unlink_transpile_file(void) {
+	unlink(&transpile_path[0]);
 }
 
 void reset_transpile_state(void) {
@@ -145,11 +151,19 @@ static void notify_function(union sigval sigv) {
 
 mqd_t	mqdf_msg;
 struct  sigevent sigv;
+char*	mq_fname[FILENAME_MAX] = {0};
 
-#define MQ_FNAME	"mqd_ekipp"
+#define MQFNAME_LEN		12
+
+void random_fname(void) {
+	int l = MQFNAME_LEN;
+	while (--l) {
+		mq_fname[l] = (time(NULL) % 65) + 32;
+	}
+}
 
 void hook_notify_function_and_wait(void) {
-	if ((mqdf_msg = mq_open(MQ_FNAME, OR_RDONLY)) < 0) {
+	if ((mqdf_msg = mq_open(mq_fname, O_RDONLY)) < 0) {
 		EEXIT(ERR_MQUEUE_OPEN, ECODE_MQUEUE_OPEN);
 	}
 
@@ -164,3 +178,29 @@ void hook_notify_function_and_wait(void) {
 
 	pause();
 }
+
+void close_mqdf(void) {
+	mq_close(mqdf_msg);
+}
+
+void write_notify_decl(void) {
+	fprintf(transpile_stream, "mqd_t mqdf = 0;");
+}
+
+void write_notify_open(void) {
+	fprintf(transpile_stream, 
+		"mqdf = mq_open(%s, O_WRONLY);",
+		mq_fname);
+}
+
+void write_notify_send(char* varname, int prio) {
+	fprintf(transpile_stream,
+		"mq_send(mqdf, %s, u8_strlen(%s), %d);",
+		varname, varname, prio);
+}
+
+void write_notify_close(void) {
+	fprintf(transpile_stream, "mq_close(mqdf);");
+}
+
+
