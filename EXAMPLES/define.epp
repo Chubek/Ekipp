@@ -1,4 +1,4 @@
-@! define $ ekipp123Abc => ''foo8 bar7 bar5 foo1 bar4 bar3 foo2''
+@! define $ ekipp123Abc => << foo8 bar7 bar5 foo1 bar4 bar3 foo2 >>
 
-Inline text becomes $! ekipp123Abc !$ now!
+Inline text becomes %! ekipp123Abc !% now!
 
