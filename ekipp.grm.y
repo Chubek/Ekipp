@@ -29,14 +29,12 @@ extern  uint8_t*  reg_nomatchmsg;
 
 extern 	char*	  delim_command;
 extern  FILE*	  current_divert;
-
-extern  void	  yyparse_body(void);
 extern  uint8_t*  body_code;
 
+extern  void	  yyparse_body(void);
+extern  uint8_t*  YYCURSOR;
+
 uint8_t* yydefeval(uint8_t* code);
-
-
-
 %}
 
 %token ENGAGE_PREFIX CALL_PREFIX CALL_SUFFIX DEF_PREFIX 

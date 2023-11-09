@@ -1,0 +1,85 @@
+rm -f lex.yy.c yy.tab.c yy.tab.h body.tab.c body.tab.h body.yylex.c ekipp.1 ekipp.1.html ekipp
+lex ekipp.grm.l
+yacc -b yy -d ekipp.grm.y
+yacc -b yy ekipp.grm.y
+lex -o body.yylex.c body.grm.l
+yacc -b body -d body.grm.y
+yacc -b body body.grm.y
+perl errgen.pl
+cc  ekipp.c startup.c yy.tab.c lex.yy.c body.tab.c body.yylex.c -lgc -ll -lm -lreadline -lunistring -o ekipp
+body.tab.c: In function ‘yyparse_body’:
+body.grm.y:19:25: warning: implicit declaration of function ‘yylex_body’ [-Wimplicit-function-declaration]
+   19 | #define yylex           yylex_body
+      |                         ^~~~~~~~~~
+body.tab.c:1064:16: note: in expansion of macro ‘yylex’
+ 1064 |       yychar = yylex ();
+      |                ^~~~~
+body.grm.y:18:25: warning: implicit declaration of function ‘yyerror_body’; did you mean ‘yyparse_body’? [-Wimplicit-function-declaration]
+   18 | #define yyerror         yyerror_body
+      |                         ^~~~~~~~~~~~
+body.tab.c:1235:7: note: in expansion of macro ‘yyerror’
+ 1235 |       yyerror (YY_("syntax error"));
+      |       ^~~~~~~
+body.grm.l: In function ‘yylex_body’:
+body.grm.l:21:16: warning: assignment to ‘int’ from ‘char *’ makes integer from pointer without a cast [-Wint-conversion]
+   21 | <ARGN>"#"/[0-9]+ {  yylval.ival = &yytext[1]; return ARGNO; }
+      |                ^
+/usr/bin/ld: /tmp/ccheCf4r.o:(.bss+0x0): multiple definition of `yyleng'; /tmp/ccefgw2I.o:(.bss+0x0): first defined here
+/usr/bin/ld: /tmp/ccheCf4r.o:(.bss+0x8): multiple definition of `yyin'; /tmp/ccefgw2I.o:(.bss+0x8): first defined here
+/usr/bin/ld: /tmp/ccheCf4r.o:(.bss+0x10): multiple definition of `yyout'; /tmp/ccefgw2I.o:(.bss+0x10): first defined here
+/usr/bin/ld: /tmp/ccheCf4r.o:(.data+0x0): multiple definition of `yylineno'; /tmp/ccefgw2I.o:(.data+0x0): first defined here
+/usr/bin/ld: /tmp/ccheCf4r.o:(.bss+0x18): multiple definition of `yy_flex_debug'; /tmp/ccefgw2I.o:(.bss+0x18): first defined here
+/usr/bin/ld: /tmp/ccheCf4r.o:(.bss+0x20): multiple definition of `yytext'; /tmp/ccefgw2I.o:(.bss+0x20): first defined here
+/usr/bin/ld: /tmp/ccheCf4r.o: in function `yy_create_buffer':
+body.yylex.c:(.text+0x154b): multiple definition of `yy_create_buffer'; /tmp/ccefgw2I.o:lex.yy.c:(.text+0x33f6): first defined here
+/usr/bin/ld: /tmp/ccheCf4r.o: in function `yyrestart':
+body.yylex.c:(.text+0x1313): multiple definition of `yyrestart'; /tmp/ccefgw2I.o:lex.yy.c:(.text+0x31be): first defined here
+/usr/bin/ld: /tmp/ccheCf4r.o: in function `yyrealloc':
+body.yylex.c:(.text+0x1f44): multiple definition of `yyrealloc'; /tmp/ccefgw2I.o:lex.yy.c:(.text+0x3e34): first defined here
+/usr/bin/ld: /tmp/ccheCf4r.o: in function `yy_switch_to_buffer':
+body.yylex.c:(.text+0x13c5): multiple definition of `yy_switch_to_buffer'; /tmp/ccefgw2I.o:lex.yy.c:(.text+0x3270): first defined here
+/usr/bin/ld: /tmp/ccheCf4r.o: in function `yyalloc':
+body.yylex.c:(.text+0x1f26): multiple definition of `yyalloc'; /tmp/ccefgw2I.o:lex.yy.c:(.text+0x3e16): first defined here
+/usr/bin/ld: /tmp/ccheCf4r.o: in function `yy_delete_buffer':
+body.yylex.c:(.text+0x15e8): multiple definition of `yy_delete_buffer'; /tmp/ccefgw2I.o:lex.yy.c:(.text+0x3493): first defined here
+/usr/bin/ld: /tmp/ccheCf4r.o: in function `yyfree':
+body.yylex.c:(.text+0x1f6d): multiple definition of `yyfree'; /tmp/ccefgw2I.o:lex.yy.c:(.text+0x3e5d): first defined here
+/usr/bin/ld: /tmp/ccheCf4r.o: in function `yy_flush_buffer':
+body.yylex.c:(.text+0x173d): multiple definition of `yy_flush_buffer'; /tmp/ccefgw2I.o:lex.yy.c:(.text+0x35e8): first defined here
+/usr/bin/ld: /tmp/ccheCf4r.o: in function `yypush_buffer_state':
+body.yylex.c:(.text+0x17de): multiple definition of `yypush_buffer_state'; /tmp/ccefgw2I.o:lex.yy.c:(.text+0x3689): first defined here
+/usr/bin/ld: /tmp/ccheCf4r.o: in function `yypop_buffer_state':
+body.yylex.c:(.text+0x18e6): multiple definition of `yypop_buffer_state'; /tmp/ccefgw2I.o:lex.yy.c:(.text+0x3791): first defined here
+/usr/bin/ld: /tmp/ccheCf4r.o: in function `yy_scan_buffer':
+body.yylex.c:(.text+0x1b06): multiple definition of `yy_scan_buffer'; /tmp/ccefgw2I.o:lex.yy.c:(.text+0x39b1): first defined here
+/usr/bin/ld: /tmp/ccheCf4r.o: in function `yy_scan_string':
+body.yylex.c:(.text+0x1c09): multiple definition of `yy_scan_string'; /tmp/ccefgw2I.o:lex.yy.c:(.text+0x3ab4): first defined here
+/usr/bin/ld: /tmp/ccheCf4r.o: in function `yy_scan_bytes':
+body.yylex.c:(.text+0x1c37): multiple definition of `yy_scan_bytes'; /tmp/ccefgw2I.o:lex.yy.c:(.text+0x3ae2): first defined here
+/usr/bin/ld: /tmp/ccheCf4r.o: in function `yyget_lineno':
+body.yylex.c:(.text+0x1d4f): multiple definition of `yyget_lineno'; /tmp/ccefgw2I.o:lex.yy.c:(.text+0x3bfa): first defined here
+/usr/bin/ld: /tmp/ccheCf4r.o: in function `yyget_in':
+body.yylex.c:(.text+0x1d5f): multiple definition of `yyget_in'; /tmp/ccefgw2I.o:lex.yy.c:(.text+0x3c0a): first defined here
+/usr/bin/ld: /tmp/ccheCf4r.o: in function `yyget_out':
+body.yylex.c:(.text+0x1d70): multiple definition of `yyget_out'; /tmp/ccefgw2I.o:lex.yy.c:(.text+0x3c1b): first defined here
+/usr/bin/ld: /tmp/ccheCf4r.o: in function `yyget_leng':
+body.yylex.c:(.text+0x1d81): multiple definition of `yyget_leng'; /tmp/ccefgw2I.o:lex.yy.c:(.text+0x3c2c): first defined here
+/usr/bin/ld: /tmp/ccheCf4r.o: in function `yyget_text':
+body.yylex.c:(.text+0x1d91): multiple definition of `yyget_text'; /tmp/ccefgw2I.o:lex.yy.c:(.text+0x3c3c): first defined here
+/usr/bin/ld: /tmp/ccheCf4r.o: in function `yyset_lineno':
+body.yylex.c:(.text+0x1da2): multiple definition of `yyset_lineno'; /tmp/ccefgw2I.o:lex.yy.c:(.text+0x3c4d): first defined here
+/usr/bin/ld: /tmp/ccheCf4r.o: in function `yyset_in':
+body.yylex.c:(.text+0x1db9): multiple definition of `yyset_in'; /tmp/ccefgw2I.o:lex.yy.c:(.text+0x3c64): first defined here
+/usr/bin/ld: /tmp/ccheCf4r.o: in function `yyset_out':
+body.yylex.c:(.text+0x1dd3): multiple definition of `yyset_out'; /tmp/ccefgw2I.o:lex.yy.c:(.text+0x3c7e): first defined here
+/usr/bin/ld: /tmp/ccheCf4r.o: in function `yyget_debug':
+body.yylex.c:(.text+0x1ded): multiple definition of `yyget_debug'; /tmp/ccefgw2I.o:lex.yy.c:(.text+0x3c98): first defined here
+/usr/bin/ld: /tmp/ccheCf4r.o: in function `yyset_debug':
+body.yylex.c:(.text+0x1dfd): multiple definition of `yyset_debug'; /tmp/ccefgw2I.o:lex.yy.c:(.text+0x3ca8): first defined here
+/usr/bin/ld: /tmp/ccheCf4r.o: in function `yylex_destroy':
+body.yylex.c:(.text+0x1e79): multiple definition of `yylex_destroy'; /tmp/ccefgw2I.o:lex.yy.c:(.text+0x3d4f): first defined here
+/usr/bin/ld: /tmp/ccksz9Co.o: in function `yyparse_body':
+body.tab.c:(.text+0x70a): undefined reference to `yyerror_body'
+/usr/bin/ld: body.tab.c:(.text+0x8a3): undefined reference to `yyerror_body'
+collect2: error: ld returned 1 exit status
+make: *** [Makefile:4: ekipp] Error 1

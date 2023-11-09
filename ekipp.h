@@ -46,6 +46,7 @@ void invoke_addarg(uint8_t* arg);
 uint8_t* invoke_getarg(size_t n); 
 void invoke_printnext(void); 
 void invoke_printarg(size_t n); 
+void invoke_printrng(int from, int to);
 void invoke_printargs(uint8_t* delim); 
 void invoke_joinargs(uint8_t* delim);
 void invoke_macro(char* id); 

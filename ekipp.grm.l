@@ -185,7 +185,8 @@ LimClose	==>
 %%
 
 void yyerror(const char* err) {
-	fputs(err, stderr);
+	fputs(err,  stderr);
+	fputc('\n', stderr);
 }
 
 int yywrap(void) {

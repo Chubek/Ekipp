@@ -22,4 +22,5 @@ yybodyeval.c
 yydefeval.c
 *.1
 *.html
+re2c.gen.c
 *.tar*
