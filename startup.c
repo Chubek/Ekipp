@@ -24,6 +24,55 @@ extern FILE* 	 yyout;
 extern int	 yyparse(void);
 extern uint8_t*  yydefeval(uint8_t*);
 
+#define TOK_MAX 2
+
+extern uint8_t engage_prefix_token[TOK_MAX + 1];
+extern uint8_t define_prefix_token[TOK_MAX + 1];
+extern uint8_t call_prefix_token[TOK_MAX + 1];
+extern uint8_t call_suffix_token[TOK_MAX + 1];
+extern uint8_t quote_left_token[TOK_MAX + 1];
+extern uint8_t quote_right_token[TOK_MAX + 1];
+extern uint8_t comment_left_token[TOK_MAX + 1];
+extern uint8_t comment_right_token[TOK_MAX + 1];
+extern uint8_t delim_left_token[TOK_MAX + 1];
+extern uint8_t delim_right_token[TOK_MAX + 1];
+
+static void set_tokens(void) {
+	setenv("EKIPP_ENGAGE_PREFIX_TOK", "#!", false);
+	setenv("EKIPP_DEFINE_PREFIX_TOK", "@!", false);
+	setenv("EKIPP_CALL_PREFIX_TOK", "$!", false);
+	setenv("EKIPP_CALL_SUFFIX_TOK", "!$", false);
+	setenv("EKIPP_QUOTE_LEFT_TOK", "((", false);
+	setenv("EKIPP_QUOTE_RIGHT_TOK", "))", false);
+	setenv("EKIPP_COMMENT_LEFT_TOK", "/*", false);
+	setenv("EKIPP_COMMENT_RIGHT_TOK", "*/", false);
+	setenv("EKIPP_DELIM_LEFT_TOK", ":>", false);
+	setenv("EKIPP_DELIM_RIGHT_TOK", "<:", false);
+}
+
+static void hook_tokens(void) {
+	strncpy(&engage_prefix_token[0],
+			getenv("EKIPP_ENGAGE_PREFIX_TOK"), MAX_TOKEN);
+	strncpy(&define_prefix_token[0],
+			getenv("EKIPP_DEFINE_PREFIX_TOK"), MAX_TOKEN);
+	strncpy(&call_prefix_token[0],
+			getenv("EKIPP_CALL_PREFIX_TOK"), MAX_TOKEN);
+	strncpy(&call_suffix_token[0],
+			getenv("EKIPP_ENGAGE_SUFFIX_TOK"), MAX_TOKEN);
+	strncpy(&quote_left_token[0],
+			getenv("EKIPP_QUOTE_LEFT_TOK"), MAX_TOKEN);
+	strncpy(&quote_right_token[0],
+			getenv("EKIPP_QUOTE_RIGHT_TOK"), MAX_TOKEN);
+	strncpy(&comment_left_token[0],
+			getenv("EKIPP_COMMENT_LEFT_TOK"), MAX_TOKEN);
+	strncpy(&comment_right_token[0],
+			getenv("EKIPP_COMMENT_RIGHT_TOK"), MAX_TOKEN);
+	strncpy(&delim_left_token[0],
+			getenv("EKIPP_DELIM_LEFT_TOK"), MAX_TOKEN);
+	strncpy(&delim_right_token[0],
+			getenv("EKIPP_DELIM_RIGHT_TOK"), MAX_TOKEN);
+}
+
 static uint8_t* yyreflect(const char* input) {
 	size_t   	len = u8_strlen(input);
 	uint8_t* 	wcs = GC_MALLOC(len * sizeof(uint8_t));
@@ -164,6 +213,8 @@ int main(int argc, char** argv) {
 	sys_argc = argc;
 	sys_argv = argv;
 	
+	set_tokens();
+	hook_tokens();
 	parse_options();
 	hook_io();
 	init_hold();
