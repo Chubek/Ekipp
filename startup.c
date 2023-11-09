@@ -49,12 +49,14 @@ static void on_startup(void) {
 	atexit(do_on_exit);
 	atexit(close_io);
 
+	setenv("EKIPP_ARG_JOIN", ", ", false);
+	
 	signal(SIGINT,  do_on_signal);
 	signal(SIGTERM, do_on_signal);
 }
 
 static void repl(void) {
-	char* line;
+	char* line = NULL;
 	while ((line = readline(NULL)) != NULL) {
 		yyreflect(line);
 		free(line);
