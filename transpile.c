@@ -42,6 +42,8 @@ static void transpile_add_includes(void) {
 	tcc_add_sysinclude_path(transpile_state, "string.h");
 	tcc_add_sysinclude_path(transpile_state, "gc.h");
 	tcc_add_sysinclude_path(transpile_state, "unistr.h");
+	tcc_add_sysinclude_path(transpile_state, "uniname.h");
+	tcc_add_sysinclude_path(transpile_state, "uniconv.h");
 	tcc_add_sysinclude_path(transpile_state, "regex.h");
 	tcc_add_sysinclude_path(transpile_state, "dlfcn.h");
 	tcc_add_sysinclude_path(transpile_state, "sys/syscall.h");
@@ -205,7 +207,7 @@ char*	mq_fname[FILENAME_MAX] = {0};
 void random_fname(void) {
 	int l = MQFNAME_LEN;
 	while (--l) {
-		mq_fname[l] = (time(NULL) % 65) + 32;
+		mq_fname[l] = (time(NULL) % 'A') + ' ';
 	}
 }
 
@@ -265,19 +267,6 @@ void write_syscall(char* name, char* args) {
 			name, args);
 }
 
-void write_main_function(char* hook, char* oracle) {
-	fprintf(transpile_stream, "void on_exit_do(void) { ");
-	write_notify_close();
-	fprintf(transpile_stream, " }");
-	fprintf(transpile_stream, "int main(int argc, char** argv) { ");
-	write_notify_open();
-	fprintf(transpile_stream, "atexit(on_exit_do);");
-	fprintf(transpile_stream, "%s(argc, argv);", hook);
-	write_notify_send(oracle, 0);
-	fprintf(transpile_stream, " }");
-}
-
-
 void write_dlopen(char* name, char* dl) {
 	fprintf(transpile_stream, "void* %s = dlopen(%s, RTLD_LOCAL);",
 			name, dl);
@@ -326,5 +315,16 @@ void write_printtxt_file(char* file, char* fmt, char* args) {
 	   file, fmt, args);
 }
 
+void write_ord(char* name, char* chr) {
+	fprintf(transpile_stream,
+	   "uc_fraction_t %s = uc_numeric_value(%s);"
+	   name, chr);
+}
 
+void write_chr(char* name, char* ord) {
+	fprintf(transpile_stream,
+	  "char buf[UNINAME_MAX + 1];\
+           char* %s = unicode_character_name(%s, &buf[0]);",
+	   name, ord);
+}
 
