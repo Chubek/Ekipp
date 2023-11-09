@@ -23,6 +23,25 @@ char		transpile_path[FILENAME_MAX] 	= {0};
 #else
 #define TEMPLATE	"%s\\XXXXX"
 
+void transpile_run(void) {
+	tcc_run(transpile_state, 0, NULL);
+}
+
+static void transpile_add_includes(void) {
+	tcc_add_sysinclude_path(transpile_state, "mqueue.h");
+	tcc_add_sysinclude_path(transpile_state, "stdio.h");
+	tcc_add_sysinclude_path(transpile_state, "stdint.h");
+	tcc_add_sysinclude_path(transpile_state, "stdlib.h");
+	tcc_add_sysinclude_path(transpile_state, "string.h");
+	tcc_add_sysinclude_path(transpile_state, "gc.h");
+	tcc_add_sysinclude_path(transpile_state, "unistr.h");
+}
+
+static void transpile_add_libraries(void) {
+	tcc_add_library(transpile_state, "unistring");
+	tcc_add_library(transpile_state, "rt");
+	tcc_add_library(transpile_state, "gc");
+}
 void init_transpile_state(void) {
 	if (sprintf(&transpile_path[0], TEMPLATE, P_tmpdir) < 0) {
 		EEXIT(ERR_FORMAT_DIRPATH, ECODE_FORMAT_DIRPATH);
@@ -34,12 +53,20 @@ void init_transpile_state(void) {
 
 	transpile_stream  = fopen(&transpile_path[0], "w+");
 	transpile_state = tcc_new();
+	
+	tcc_add_file(transpile_state, &transpile_path[0]);
+	tcc_set_output_type(transpile_state, TCC_OUTPUT_MEMORY);
+
+	transpile_add_includes();
+	transpile_add_libraries();
 
 }
 
-void unlink_transpile_file(void) {
+static void unlink_transpile_file(void) {
 	unlink(&transpile_path[0]);
 }
+
+
 
 void reset_transpile_state(void) {
 	if (transpile_state == NULL)
