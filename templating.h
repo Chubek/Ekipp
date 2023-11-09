@@ -16,5 +16,13 @@ void write_goto(char* label, char* after);
 void tmpl_add_symbol(uint8_t* name, void* value, enum Symtype type);
 void tmpl_get_symbol(uint8_t* name, void** value, enum Symtype* type);
 void tmpl_delete_symbol(uint8_t* name);
+void notify_function(union sigval sigv);
+void random_fname(void);
+void hook_notify_function_and_wait(void);
+void close_mqdf(void);
+void write_notify_decl(void);
+void write_notify_open(void);
+void write_notify_send(char* varname, int prio);
+void write_notify_close(void);
 
 #endif
