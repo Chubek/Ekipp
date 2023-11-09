@@ -60,11 +60,13 @@ LimClose	==>
 <CAL>"!$"	     { BEGIN(INITIAL); return CALL_SUFFIX; }
 <DEF>define	     return DEFINE;
 <DEF>defeval	     return DEFEVAL;
+<DEF>exchange	     return EXCHANGE;
 <INITIAL>"@!"	     { BEGIN(DEF); return DEF_PREFIX;  }
 <INITIAL>"$!"	     { BEGIN(CAL); return CALL_PREFIX; }
 <DEF,CAL>{Ident}     { yylval.sval = gc_strdup(&yytext[0]);
 				  return IDENT;		}
 <DEF>"=>"	     return CHEVRON;
+<DEF>"<>"	     return XCHN_MARK;
 <DEF>[$(]	     return *yytext;
 <CAL>[(]	     { BEGIN(ARG);     return *yytext; 	 }
 <CAL>[)]	     { BEGIN(INITIAL); return *yytext;   }
@@ -83,7 +85,7 @@ LimClose	==>
 			return DELIMITED;   }
 <DLM2>{LimClose}   BEGIN(INITIAL);
 
-<QUO>"\'"	  { yylval.sval[yyleng - 1] = '\'';    }
+<QUO>\\'	  { yylval.sval[yyleng - 1] = '\'';    }
 <QUO>[^']+        { yylval.sval = gc_strdup(&yytext[0]);
 			return QUOTED;	    }
 <QUO>"''"            BEGIN(ENG);
@@ -139,6 +141,8 @@ LimClose	==>
 <ENG>catfile	return CATFILE;
 <ENG>offset	return OFFSET;
 <ENG>datetime	return DATETIME;
+<ENG>patsub 	return PATSUB;
+<ENG>substitute return SUBSTITUTE;
 
 <ENG>divert     { BEGIN(DIV1); return DIVERT;   }
 <ENG>undivert	{ BEGIN(DIV1); return UNDIVERT; }
