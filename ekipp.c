@@ -527,6 +527,60 @@ void print_argv(int n) {
 	}
 }
 
+void patsub(uint8_t* input, uint8_t* pattern, uint8_t* repl) {
+	regex_t* 	 re_cc   = NULL;
+	int 		 nmatch  = 1;
+	regmatch_t	 pmatch[nmatch];
+	size_t		 repllen = u8_strlen(repl);
+	size_t		 inplen  = u8_strlen(input);
+	size_t		 fullen  = repllen + inplen;
+	uint8_t*	 subbed  = GC_MALLOC(inplen + 1);
+	u8_strncpy(&subbed[0], &input[0], inplen);
+
+	if (regcomp(re_cc, pattern, 0) < 0) {
+		EEXIT(ERR_REGEX_PATSUB, ECODE_REGEX_PATSUB);
+	}
+
+	for (;;) {
+		if (regexec(re_cc, input, nmatch, pmatch, 0))
+			break;
+
+		int start = pmatch[0].rm_so;
+		int len   = (pmatch[0].rm_eo - start) < repllen
+			? repllen
+			: len;
+		
+		fullen    += len;
+		subbed    = GC_REALLOC(subbed, fullen);
+		u8_strncpy(&subbed[start], &repl[0], repllen);
+	}
+
+	OUTPUT(subbed);
+	subbed = NULL;
+}
+
+void subst(uint8_t* input, uint8_t* this, uint8_t* with) {
+	size_t	inplen  = u8_strlen(input);
+	size_t  thislen = u8_strlen(this);
+	size_t  withlen = u8_strlen(with);
+	size_t  repllen = withlen < thislen 
+				? thislen
+				: withlen;
+
+	uint8_t* subbed = GC_MALLOC(inplen);
+
+	for (uint8_t* sub = u8_strstr(input, this);
+			sub != NULL;
+			sub  = u8_strstr(input, this)) {
+		size_t idx   = sub - input - 1;
+		u8_strncpy(&subbed[idx], &with[0], repllen);
+	}
+
+	OUTPUT(subbed);
+	subbed = NULL;
+
+}
+
 void translit(uint8_t* input, uint8_t* srcmap, uint8_t* dstmap) {
 	uint8_t map[UINT8_MAX] = {0}, uc;
 	for (size_t i = 0; i < strlen(srcmap); i++)
