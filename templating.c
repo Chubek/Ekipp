@@ -3,13 +3,14 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <limits.h>
+#include <mqueue.h>
 
 #include <gc.h>
 #include <unistr.h>
 #include <libtcc.h>
 
 #include "ekipp.h"
-
+#include "templating.h"
 
 TCCState* 	transpile_state 		= NULL;
 FILE*		transpile_stream		= NULL;
@@ -116,10 +117,30 @@ void tmpl_delete_symbol(uint8_t* name) {
 			return;
 		}
 	}
-
-
 }
 
+extern FILE* yyout;
 
+static void notify_function(union sigval sigv) {
+	struct mq_attr   attrs;
+	uint8_t*         msgbuff  = NULL;
+	mqd_t		 mqdf 	  = *((mqd_t*) sv.sival_ptr);
+
+	if (mq_getattr(mqdf, &attrs) == -1) {
+		EEXIT(ERR_MQUEUE_ATTRS, ECODE_MQUEUE_ATTRS);
+	}
+
+	msgbuff = GC_MALLOC(attrs.mq_msgsize);
+	if (msgbuff == NULL) {
+		EEXIT(ERR_MQUEUE_BUFF, ECODE_MQUEUE_BUFF);
+	}
+
+	if (mq_receive(mqdf, msgbuff, attrs.mq_msgsize, NULL) < 0) {
+		EEXIT(ERR_MQUEUE_RECEIVE, ECODE_MQUEUE_RECEIVE);
+	}
+
+	fwrite(msgbuff, attrs.mq_msgsize, sizeof(uint8_t), yyout);
+	msgbuff = NULL;
+}
 
 
