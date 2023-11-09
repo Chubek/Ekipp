@@ -143,4 +143,24 @@ static void notify_function(union sigval sigv) {
 	msgbuff = NULL;
 }
 
+mqd_t	mqdf_msg;
+struct  sigevent sigv;
 
+#define MQ_FNAME	"mqd_ekipp"
+
+void hook_notify_function_and_wait(void) {
+	if ((mqdf_msg = mq_open(MQ_FNAME, OR_RDONLY)) < 0) {
+		EEXIT(ERR_MQUEUE_OPEN, ECODE_MQUEUE_OPEN);
+	}
+
+	sigv.sigev_notify		= SIGEV_THREAD;
+	sigv.sigev_notify_function	= notify_function;
+	sigv.sigev_notify_attributes	= NULL;
+	sigv.sigev_value.sival_ptr	= &mqdf_msg;
+
+	if (mq_notify(mqdf_msg, &sigv) < 0) {
+		EEXIT(ERR_MQUEUE_NOTIFY, ECODE_MQUEUE_NOTIFY);
+	}
+
+	pause();
+}
