@@ -39,6 +39,14 @@ void insert_symbol(char* name, uint8_t* value) {
 	Symtable		= node;
 }
 
+void exchange_symbol(char* this, char* with) {
+	uint8_t* this_val = get_symbol(this);
+	uint8_t* with_val = get_symbol(with);
+
+	insert_symbol(this, with_val);
+	insert_symbol(with, this_val);
+}
+
 extern uint8_t* yydefeval(uint8_t* code);
 
 void defeval_insert(char* name, uint8_t* code) {
