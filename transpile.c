@@ -14,6 +14,8 @@
 #include "ekipp.h"
 #include "templating.h"
 
+extern		FILE*	yyout;
+
 TCCState* 	transpile_state 		= NULL;
 FILE*		transpile_stream		= NULL;
 char		transpile_path[FILENAME_MAX] 	= {0};
@@ -32,6 +34,11 @@ void transpile_addarg(char* arg) {
 
 void transpile_run(void) {
 	tcc_run(transpile_state, transpile_argc, transpile_argv);
+}
+
+static void transpile_add_yyout(void) {
+	tcc_add_symbol(transpile_state, 
+			"yyout", (void*)yyout);
 }
 
 static void transpile_add_includes(void) {
@@ -72,16 +79,12 @@ void init_transpile_state(void) {
 
 	transpile_add_includes();
 	transpile_add_libraries();
-
-	write_notify_decl();
-
+	translile_add_yyout();
 }
 
 static void unlink_transpile_file(void) {
 	unlink(&transpile_path[0]);
 }
-
-
 
 void reset_transpile_state(void) {
 	if (transpile_state == NULL)
@@ -103,8 +106,8 @@ void write_function(char* name, char* args, char* body) {
 			name, args, body);
 }
 
-void write_invoke(char* name, char* args) {
-	fprintf(transpile_stream, "%s(%s);", name, args);
+void write_invoke(char* name, char* result, char* args) {
+	fprintf(transpile_stream, "%s(%s,&%s);", name, args, result);
 }
 
 void write_if(char* cond, char* body) {
@@ -232,28 +235,18 @@ void close_mqdf(void) {
 	mq_close(mqdf_msg);
 }
 
-void write_notify_decl(void) {
-	fprintf(transpile_stream, "mqd_t mqdf = 0;");
+void write_yyout_varprint(char* varname) {
+	fprintf(transpile_stream, "fputs(%s, (FILE*)yyout);",
+			varname);
 }
 
-void write_notify_open(void) {
-	fprintf(transpile_stream, 
-		"mqdf = mq_open(%s, O_WRONLY);",
-		mq_fname);
-}
-
-void write_notify_send(char* varname, int prio) {
-	fprintf(transpile_stream,
-		"mq_send(mqdf, %s, u8_strlen(%s), %d);",
-		varname, varname, prio);
-}
-
-void write_notify_close(void) {
-	fprintf(transpile_stream, "mq_close(mqdf);");
+void write_yyout_strprint(char* strname) {
+	fprintf(transpile_stream, "fputs(\"%s\", (FILE*)yyout);",
+			strname);
 }
 
 void write_string_const(char* name, uint8_t* string) {
-	u8_fprintf(transpile_stream, "const uint8_t* %s = %s;",
+	u8_fprintf(transpile_stream, "const uint8_t* %s = \"%s\";",
 			name, string);
 }
 
