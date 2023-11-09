@@ -40,10 +40,10 @@ extern uint8_t delim_right_token[TOK_MAX + 1];
 static void set_tokens(void) {
 	setenv("EKIPP_ENGAGE_PREFIX_TOK", "#!", false);
 	setenv("EKIPP_DEFINE_PREFIX_TOK", "@!", false);
-	setenv("EKIPP_CALL_PREFIX_TOK", "$!", false);
-	setenv("EKIPP_CALL_SUFFIX_TOK", "!$", false);
-	setenv("EKIPP_QUOTE_LEFT_TOK", "((", false);
-	setenv("EKIPP_QUOTE_RIGHT_TOK", "))", false);
+	setenv("EKIPP_CALL_PREFIX_TOK", "%!", false);
+	setenv("EKIPP_CALL_SUFFIX_TOK", "!%", false);
+	setenv("EKIPP_QUOTE_LEFT_TOK", "<<", false);
+	setenv("EKIPP_QUOTE_RIGHT_TOK", ">>", false);
 	setenv("EKIPP_COMMENT_LEFT_TOK", "/*", false);
 	setenv("EKIPP_COMMENT_RIGHT_TOK", "*/", false);
 	setenv("EKIPP_DELIM_LEFT_TOK", ":>", false);
@@ -58,7 +58,7 @@ static void hook_tokens(void) {
 	strncpy(&call_prefix_token[0],
 			getenv("EKIPP_CALL_PREFIX_TOK"), MAX_TOKEN);
 	strncpy(&call_suffix_token[0],
-			getenv("EKIPP_ENGAGE_SUFFIX_TOK"), MAX_TOKEN);
+			getenv("EKIPP_CALL_SUFFIX_TOK"), MAX_TOKEN);
 	strncpy(&quote_left_token[0],
 			getenv("EKIPP_QUOTE_LEFT_TOK"), MAX_TOKEN);
 	strncpy(&quote_right_token[0],
