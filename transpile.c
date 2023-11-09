@@ -42,6 +42,8 @@ static void transpile_add_includes(void) {
 	tcc_add_sysinclude_path(transpile_state, "string.h");
 	tcc_add_sysinclude_path(transpile_state, "gc.h");
 	tcc_add_sysinclude_path(transpile_state, "unistr.h");
+	tcc_add_sysinclude_path(transpile_state, "regex.h");
+	tcc_add_sysinclude_path(transpile_state, "dlfcn.h");
 	tcc_add_sysinclude_path(transpile_state, "sys/syscall.h");
 }
 
@@ -49,6 +51,7 @@ static void transpile_add_libraries(void) {
 	tcc_add_library(transpile_state, "unistring");
 	tcc_add_library(transpile_state, "rt");
 	tcc_add_library(transpile_state, "gc");
+	tcc_add_library(transpile_state, "dl");
 }
 void init_transpile_state(void) {
 	if (sprintf(&transpile_path[0], TEMPLATE, P_tmpdir) < 0) {
@@ -268,3 +271,55 @@ void write_main_function(char* hook) {
 	fprintf(transpile_stream, "%s(argc, argv);", hook);
 	fprintf(transpile_stream, " }");
 }
+
+
+void write_dlopen(char* name, char* dl) {
+	fprintf(transpile_stream, "void* %s = dlopen(%s, RTLD_LOCAL);",
+			name, dl);
+}
+
+void write_dlsym(char* name, char* rtld, char* sym) {
+	fprintf(transpile_stream, "void* %s = dlsym(%s,%s);",
+			name, rtld, sym);
+}
+
+void write_dlclose(char* name) {
+	fprintf(transpile_stream, "dlclose(%s);", name);
+}
+
+void write_open_file(char* name, char* path, char* flag) {
+	fprintf(transpile_stream, "FILE* %s = fopen(\"%s\", \"%s\");",
+			name, path, flag);
+}
+
+void write_close_file(char* name) {
+	fprintf(transpile_stream, "fclose(%s);", name);
+}
+
+void write_read_file(char* file, char* dst) {
+	fprintf(transpile_stream, 
+	   "fseek(%s,0,SEEK_END);long l=ftell(%s);rewind(%s);\
+	   uint8_t*%s=GC_MALLOC(l);fgets(%s,l,%s);",
+	   file, file, file, dst, dst, file);
+}
+
+void write_literaltxt_file(char* file, char* text) {
+	fprintf(transpile_stream,
+	  "fputs(\"%s\", %s);",
+	  text, file);
+}
+
+void write_vartxt_file(char* file, char* varname) {
+	fprintf(transpile_stream,
+	  "fwrite(%s, u8_strlen(%s), 1, %s)",
+	  varname, varname, file);
+}
+
+void write_printtxt_file(char* file, char* fmt, char* args) {
+	fprintf(transpile_stream,
+	   "fprintf(%s,\"%s\",%s)",
+	   file, fmt, args);
+}
+
+
+
