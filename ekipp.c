@@ -434,6 +434,15 @@ void invoke_printarg(size_t n) {
 	}
 }
 
+void invoke_printrng(int from, int to) {
+	int i = 0;
+	for (i = from; i < to && i != invoke_argc; i++) {
+		OUTPUT(invoke_argv[i]);
+		OUTPUT(getenv("EKIPP_ARG_JOIN"));
+	}
+	OUTPUT(invoke_argv[i]);
+}
+
 void invoke_joinargs(uint8_t* delim) {
 	size_t n = 0;
 	size_t l = 0;
