@@ -1,0 +1,6 @@
+@! define $ A => ''B''
+@! define $ B => ''A''
+@! exchange $ A <> B
+
+$! A !$
+$! B !$
