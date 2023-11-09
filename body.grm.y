@@ -32,7 +32,7 @@ uint8_t*     body_code = NULL;
 
 
 %token ARGNO BODY_TEXT ESC_TEXT
-%token JOIN_SPACE JOIN_COMMA
+%token JOIN_SPACE JOIN_COMMA JOIN_ENV
 %%
 
 body :
@@ -48,9 +48,10 @@ text : argn
 
 argn : ARGNO		{ invoke_printarg($<ival>1);           }
      | '[' ARGNO 
-     	   ARGNO ']'	{ invoke_printrng($<ival>1, $<ival>3); }
+     	   ARGNO ']'	{ invoke_printrng($<ival>2, $<ival>3); }
      | JOIN_SPACE	{ invoke_printargs(" ");	       }
      | JOIN_COMMA	{ invoke_printargs(", ");	       }
+     | JOIN_ENV		{ invoke_printargs(getenv("EKIPP_ARG_JOIN")); }
      ;
 
 

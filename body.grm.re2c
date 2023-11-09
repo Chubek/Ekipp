@@ -15,6 +15,7 @@ static inline int yylex(void) {
 						return ARGNO;      }
 		"#@"		{ return JOIN_SPACE;	}
 		"#*"		{ return JOIN_COMMA;    }
+		"#!"		{ return JOIN_ENV;	}
 		"\\" / [#'\[\]]	{ yylval.cval = *YYCURSOR; 
 						return ESC_TEXT;  }
 		"["		{ return '['; 		}
