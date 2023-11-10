@@ -7,6 +7,7 @@
 #include <time.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include <gc.h>
 #include <unistr.h>
@@ -43,7 +44,7 @@ static struct TranspileSymTable {
 } *Symtable;
 
 
-void trnspl_add_symbol(uint8_t* name, void* value, enum Symtype type) {
+void transpile_add_symbol(uint8_t* name, void* value, enum Symtype type) {
 	symtab_t*	node 	= GC_MALLOC(sizeof(symtab_t));
 	node			= Symtable;
 	node->name		= gc_strdup(name);
@@ -51,7 +52,7 @@ void trnspl_add_symbol(uint8_t* name, void* value, enum Symtype type) {
 	Symtable		= node;
 }
 
-void trnspl_get_symbol(uint8_t* name, void** value, enum Symtype* type) {
+void transpile_get_symbol(uint8_t* name, void** value, enum Symtype* type) {
 	for (symtab_t* node = Symtable;
 			node != NULL;
 			node = Symtable->next) {
@@ -64,7 +65,7 @@ void trnspl_get_symbol(uint8_t* name, void** value, enum Symtype* type) {
 
 }
 
-void trnspl_delete_symbol(uint8_t* name) {
+void transpile_delete_symbol(uint8_t* name) {
 	for (symtab_t* node = Symtable;
 			node != NULL;
 			node = Symtable->next) {
@@ -108,6 +109,7 @@ static void transpile_add_includes(void) {
 	tcc_add_sysinclude_path(transpile_state, "uniconv.h");
 	tcc_add_sysinclude_path(transpile_state, "regex.h");
 	tcc_add_sysinclude_path(transpile_state, "dlfcn.h");
+	tcc_add_sysinclude_path(transpile_state, "fcntl.h");
 	tcc_add_sysinclude_path(transpile_state, "sys/syscall.h");
 }
 
@@ -210,6 +212,32 @@ void close_mqdesc(void) {
 
 void write_variable(char* type, char* name, char* init) {
 	fprintf(transpile_stream, "%s %s = %s;", type, name);
+}
+
+void write_mqueue_descdcl(void) {
+	fprintf(transpile_stream, "mqd_t mqdesc = 0;");
+}
+
+void write_mqueue_open(void) {
+	fprintf(transpile_stream, 
+	   "mqdesc = mq_open(\"%s\", O_WRONLY);",
+	   &mq_fname[0]
+	  );
+}
+
+void write_mqueue_varsend(char* varname) {
+	fprintf(transpile_stream, 
+	  "mq_send(mqdesc, %s, u8_strlen(%s), 0);", 
+	   varname, varname
+	);
+}
+
+void write_mqueue_txtsend(uint8_t* txt) {
+	fprintf(transpile_stream,
+           "mq_send(mqdesc, \"%s\", u8_strlen(\"txt\"), 0)",
+	   txt, txt
+	 );
+
 }
 
 void write_function(char* name, char* args, char* body) {
@@ -322,7 +350,7 @@ void write_printtxt_file(char* file, char* fmt, char* args) {
 
 void write_ord(char* name, char* chr) {
 	fprintf(transpile_stream,
-	   "uc_fraction_t %s = uc_numeric_value(%s);"
+	   "uc_fraction_t %s = uc_numeric_value('%s');"
 	   name, chr);
 }
 
@@ -333,3 +361,26 @@ void write_chr(char* name, char* ord) {
 	   name, ord);
 }
 
+void write_expr_num(char* operator, char* res, 
+		intmax_t operand1, intmax_t operand2) {
+	fprintf(transpile_stream, "intmax_t %s = %ld %s %ld;",
+			res, operand1, operator, operand2);
+}
+
+void write_expr_var(char* operator, char* res,
+		char* operand1, char* operand2) {
+	fprintf(transpile_stream, "intmax_t %s = %s %s %s;",
+			res, operand1, operator, operand2);
+}
+
+void write_expr_numvar(char* operator, char* res,
+		intmax_t operand1, char* operand2) {
+	fprintf(transpile_stream, "intmax_t %s = %d %s %s;",
+		       res, operand1, operator, operand2);
+}
+
+void write_expr_varnum(char* operator, char* res,
+		char* operand1, intmax_t operand2) {
+	fprintf(transpile_stream, "intmax_t %s = %s %s %d;",
+		       res, operand1, operator, operand2);
+}
