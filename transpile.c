@@ -5,6 +5,7 @@
 #include <limits.h>
 #include <mqueue.h>
 #include <time.h>
+#include <pthread.h>
 #include <unistd.h>
 
 #include <gc.h>
@@ -21,18 +22,72 @@ FILE*		transpile_stream		= NULL;
 char		transpile_path[FILENAME_MAX] 	= {0};
 char*		transpile_argv[ARG_MAX] 	= {NULL};
 int		transpile_argc 			= 0;
-
+void		transpile_error_opaque		= NULL;
 
 #ifdef __unix__
 #define TEMPLATE	"%s/XXXXX"
 #else
 #define TEMPLATE	"%s\\XXXXX"
 
+static struct TranspileSymTable {
+	symtab_t*	next;
+	uint8_t* 	name;
+	void*		value;
+	enum Symtype { 
+	   INT, 
+	   FLOAT, 
+	   STR, 
+	   PTR,
+	   FUNC
+	}  		type;
+} *Symtable;
+
+
+void trnspl_add_symbol(uint8_t* name, void* value, enum Symtype type) {
+	symtab_t*	node 	= GC_MALLOC(sizeof(symtab_t));
+	node			= Symtable;
+	node->name		= gc_strdup(name);
+	node->value		= gc_strdup(value);
+	Symtable		= node;
+}
+
+void trnspl_get_symbol(uint8_t* name, void** value, enum Symtype* type) {
+	for (symtab_t* node = Symtable;
+			node != NULL;
+			node = Symtable->next) {
+		if (u8_strcmp(node->name, name)) {
+			*value = node->value;
+			*type  = node->type;
+			return;
+		}
+	}
+
+}
+
+void trnspl_delete_symbol(uint8_t* name) {
+	for (symtab_t* node = Symtable;
+			node != NULL;
+			node = Symtable->next) {
+		if (u8_strcmp(node->name, name)) {
+			node = NULL;
+			return;
+		}
+	}
+}
+
+
+static void transpile_error(void* opaque, const char* msg) {
+	fputs(msg, stderr);
+	fputc('\n', stderr);
+}
+
 void transpile_addarg(char* arg) {
 	transpile_argv[transpile_argc++] = gc_strdup(arg);
 }
 
 void transpile_run(void) {
+	tcc_add_file(transpile_state, &transpile_path[0]);
+	tcc_set_output_type(transpile_state, TCC_OUTPUT_MEMORY);
 	tcc_run(transpile_state, transpile_argc, transpile_argv);
 }
 
@@ -71,15 +126,16 @@ void init_transpile_state(void) {
 		EEXIT(ERR_TMP_FILE, ECODE_TMP_FILE);
 	}
 
+
 	transpile_stream  = fopen(&transpile_path[0], "w+");
 	transpile_state = tcc_new();
 	
-	tcc_add_file(transpile_state, &transpile_path[0]);
-	tcc_set_output_type(transpile_state, TCC_OUTPUT_MEMORY);
 
+	tcc_set_error_func(transpile_state,
+			transpile_error_opaque,
+			transpile_error);
 	transpile_add_includes();
 	transpile_add_libraries();
-	translile_add_yyout();
 }
 
 static void unlink_transpile_file(void) {
@@ -96,6 +152,61 @@ void reset_transpile_state(void) {
 	transpile_argc	 = 0;
 	
 }
+
+mqd_t	mqdesc_msg;
+struct  sigevent sigv;
+char*	mq_fname[FILENAME_MAX] = {0};
+
+#define MQFNAME_LEN		12
+
+
+static void notify_function(union sigval sv) {
+	struct mq_attr  mqattr;
+	uint8_t*	msgbuff;
+	mqd_t		mqdesc = *((mqd_t*) sv.sival_ptr);
+
+	if (mq_getattr(mqdesc, &mqattr) < 0) {
+		EEXIT(ERR_MQ_ATTR, ECODE_MQ_ATTR);
+	}
+
+	msgbuff = GC_MALLOC(mqattr.mq_msgsize + 1);
+	
+	if (mq_receive(mqdesc, msgbuff, mqattr.mq_msgsize, NULL) < 0) {
+		EEXIT(ERR_MQ_RECEIVE, ECODE_MQ_RECEIVE);		
+	}
+
+	fputs(msgbuff, yyout);
+	msgbuff = NULL;		
+}
+
+void random_fname(void) {
+	int l = MQFNAME_LEN;
+	while (--l) {
+		mq_fname[l] = (time(NULL) % 'A') + ' ';
+	}
+}
+
+void hook_notify_function_and_wait(void) {
+	if ((mqdesc_msg = mq_open(mq_fname, O_RDONLY)) < 0) {
+		EEXIT(ERR_MQUEUE_OPEN, ECODE_MQUEUE_OPEN);
+	}
+
+	sigv.sigev_notify		= SIGEV_THREAD;
+	sigv.sigev_notify_function	= notify_function;
+	sigv.sigev_notify_attributes	= NULL;
+	sigv.sigev_value.sival_ptr	= &mqdesc_msg;
+
+	if (mq_notify(mqdesc_msg, &sigv) < 0) {
+		EEXIT(ERR_MQUEUE_NOTIFY, ECODE_MQUEUE_NOTIFY);
+	}
+
+	pause();
+}
+
+void close_mqdesc(void) {
+	mq_close(mqdesc_msg);
+}
+
 
 void write_variable(char* type, char* name, char* init) {
 	fprintf(transpile_stream, "%s %s = %s;", type, name);
@@ -134,105 +245,6 @@ void write_whileloop(char* cond, char* body) {
 
 void write_goto(char* label, char* after) {
 	fprintf(transpile_stream, "%s: %s", label, after);
-}
-
-static struct TemplateSymTable {
-	symtab_t*	next;
-	uint8_t* 	name;
-	void*		value;
-	enum Symtype { INT, FLOAT, 
-	   STR, PTR, }  type;
-} *Symtable;
-
-
-void tmpl_add_symbol(uint8_t* name, void* value, enum Symtype type) {
-	symtab_t*	node 	= GC_MALLOC(sizeof(symtab_t));
-	node			= Symtable;
-	node->name		= gc_strdup(name);
-	node->value		= gc_strdup(value);
-	Symtable		= node;
-}
-
-void tmpl_get_symbol(uint8_t* name, void** value, enum Symtype* type) {
-	for (symtab_t* node = Symtable;
-			node != NULL;
-			node = Symtable->next) {
-		if (u8_strcmp(node->name, name)) {
-			*value = node->value;
-			*type  = node->type;
-			return;
-		}
-	}
-
-}
-
-void tmpl_delete_symbol(uint8_t* name) {
-	for (symtab_t* node = Symtable;
-			node != NULL;
-			node = Symtable->next) {
-		if (u8_strcmp(node->name, name)) {
-			node = NULL;
-			return;
-		}
-	}
-}
-
-extern FILE* yyout;
-
-static void notify_function(union sigval sigv) {
-	struct mq_attr   attrs;
-	uint8_t*         msgbuff  = NULL;
-	mqd_t		 mqdf 	  = *((mqd_t*) sv.sival_ptr);
-
-	if (mq_getattr(mqdf, &attrs) == -1) {
-		EEXIT(ERR_MQUEUE_ATTRS, ECODE_MQUEUE_ATTRS);
-	}
-
-	msgbuff = GC_MALLOC(attrs.mq_msgsize);
-	if (msgbuff == NULL) {
-		EEXIT(ERR_MQUEUE_BUFF, ECODE_MQUEUE_BUFF);
-	}
-
-	if (mq_receive(mqdf, msgbuff, attrs.mq_msgsize, NULL) < 0) {
-		EEXIT(ERR_MQUEUE_RECEIVE, ECODE_MQUEUE_RECEIVE);
-	}
-
-	fwrite(msgbuff, attrs.mq_msgsize, sizeof(uint8_t), yyout);
-	msgbuff = NULL;
-}
-
-mqd_t	mqdf_msg;
-struct  sigevent sigv;
-char*	mq_fname[FILENAME_MAX] = {0};
-
-#define MQFNAME_LEN		12
-
-void random_fname(void) {
-	int l = MQFNAME_LEN;
-	while (--l) {
-		mq_fname[l] = (time(NULL) % 'A') + ' ';
-	}
-}
-
-void hook_notify_function_and_wait(void) {
-	if ((mqdf_msg = mq_open(mq_fname, O_RDONLY)) < 0) {
-		EEXIT(ERR_MQUEUE_OPEN, ECODE_MQUEUE_OPEN);
-	}
-
-	sigv.sigev_notify		= SIGEV_THREAD;
-	sigv.sigev_notify_function	= notify_function;
-	sigv.sigev_notify_attributes	= NULL;
-	sigv.sigev_value.sival_ptr	= &mqdf_msg;
-
-	if (mq_notify(mqdf_msg, &sigv) < 0) {
-		EEXIT(ERR_MQUEUE_NOTIFY, ECODE_MQUEUE_NOTIFY);
-	}
-
-	pause();
-}
-
-void close_mqdf(void) {
-	mq_close(mqdf_msg);
 }
 
 void write_yyout_varprint(char* varname) {
