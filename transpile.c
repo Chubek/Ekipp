@@ -92,10 +92,6 @@ void transpile_run(void) {
 	tcc_run(transpile_state, transpile_argc, transpile_argv);
 }
 
-static void transpile_add_yyout(void) {
-	tcc_add_symbol(transpile_state, 
-			"yyout", (void*)yyout);
-}
 
 static void transpile_add_includes(void) {
 	tcc_add_sysinclude_path(transpile_state, "mqueue.h");
@@ -383,4 +379,43 @@ void write_expr_varnum(char* operator, char* res,
 		char* operand1, intmax_t operand2) {
 	fprintf(transpile_stream, "intmax_t %s = %s %s %d;",
 		       res, operand1, operator, operand2);
+}
+
+#define ARGUMENT_MAX 128
+
+static struct FuncState {
+        char*   argnames[ARGUMENT_MAX];
+        char*   argtypes[ARGUMENT_MAX];
+        int     argc;
+        char*   function_name;
+} FuncState;
+
+
+void funcstate_addarg(char* argname, char* argtype) {
+        FuncState.argnames[FuncState.argc]   = gc_strdup(argname);
+        FuncState.argtypes[FuncState.argc++] = gc_strdup(argtype);
+}
+
+void funcstate_joinargs(bool add_type) {
+        char*  joined   = NULL;
+        char*  curname  = NULL;
+        char*  curtype  = NULL;
+        size_t length   = 0;
+        size_t total    = 1;
+        for (int i = 0; i < FuncState.argc; i++) {
+                curname  = FuncState.argnames[i];
+                curtype  = FuncState.argtypes[i];
+                length   = strlen(curname) + (add_type
+                                                ? strlen(curtype)
+                                                : 0);
+                total    += length + 1;
+                joined   = GC_REALLOC(joined, total);
+                
+                if (add_type)
+                        strncat(joined, curtype, strlen(curtype));
+                strncat(joined, curname, strlen(curname));
+                if (i + 1 != FuncState.argc)
+                        strncat(joined, ",", 1);
+        }
+        return joined;
 }
