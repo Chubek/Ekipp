@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <limits.h>
+#include <stdbool.h>
 #include <mqueue.h>
 #include <time.h>
 #include <pthread.h>
@@ -39,7 +40,6 @@ static struct TranspileSymTable {
 	   FLOAT, 
 	   STR, 
 	   PTR,
-	   FUNC
 	}  		type;
 } *Symtable;
 
@@ -236,7 +236,7 @@ void write_mqueue_txtsend(uint8_t* txt) {
 
 }
 
-void write_function(char* name, char* args, char* body) {
+void write_funcsig(char* name, char* args, char* body) {
 	fprintf(transpile_stream, "void %s (%s, void** __result){ %s; }",
 			name, args, body);
 }
@@ -383,39 +383,81 @@ void write_expr_varnum(char* operator, char* res,
 
 #define ARGUMENT_MAX 128
 
-static struct FuncState {
-        char*   argnames[ARGUMENT_MAX];
-        char*   argtypes[ARGUMENT_MAX];
-        int     argc;
-        char*   function_name;
-} FuncState;
+static struct FunctionState {
+        char*     argnames[ARGUMENT_MAX];
+        char*     argtypes[ARGUMENT_MAX];
+        int       argc;
+        char*     name;
+	char*	  body;
+	fstate_t* next;
+} *FuncState, *CurrentFn;
 
-
-void funcstate_addarg(char* argname, char* argtype) {
-        FuncState.argnames[FuncState.argc]   = gc_strdup(argname);
-        FuncState.argtypes[FuncState.argc++] = gc_strdup(argtype);
+void funcstate_set(char* name) {
+	for (CurrentFn = FuncState;
+			CurrentFn != NULL;
+			CurrentFn  = CurrentFn->next) {
+		if (!strcmp(CurrentFn->name, name))
+			break;
+	}
 }
 
-void funcstate_joinargs(bool add_type) {
+fnstate_t* funcstate_new(void) {
+	fstate_t*	node = GC_MALLOC(sizeof(fstate_t));
+	node		     = FuncState;
+	FuncState	     = node;
+	return FuncState;
+}
+
+void funcstate_addname(fstate_t* fn, char* funcname) {
+	fn->name	= gc_strdup(funcname);
+}
+
+void funcstate_addarg(fstate_t* fn, char* argname, char* argtype) {
+        fn->argnames[fn->argc]   = gc_strdup(argname);
+        fn->argtypes[fn->argc++] = gc_strdup(argtype);
+}
+
+char* funcstate_joinargs(fstate_t* fn, bool for_define) {
         char*  joined   = NULL;
         char*  curname  = NULL;
         char*  curtype  = NULL;
         size_t length   = 0;
         size_t total    = 1;
-        for (int i = 0; i < FuncState.argc; i++) {
-                curname  = FuncState.argnames[i];
-                curtype  = FuncState.argtypes[i];
-                length   = strlen(curname) + (add_type
+        for (int i = 0; i < fn->argc; i++) {
+                curname  = fn->argnames[i];
+                curtype  = fn->argtypes[i];
+                length   = strlen(curname) + (for_define
                                                 ? strlen(curtype)
                                                 : 0);
                 total    += length + 1;
                 joined   = GC_REALLOC(joined, total);
                 
-                if (add_type)
+                if (for_define)
                         strncat(joined, curtype, strlen(curtype));
                 strncat(joined, curname, strlen(curname));
-                if (i + 1 != FuncState.argc)
+                if (i + 1 != fn->argc)
                         strncat(joined, ",", 1);
         }
         return joined;
+}
+
+FILE* hold = NULL;
+
+void funcstate_openbody(fstate_t* fn) {
+	hold 	 	 = transpile_stream;
+	transpile_stream = open_memstream(fn->body, "w");
+}
+
+void funcstate_closebody(void) {
+	fclose(transpile_stream);
+	transpile_stream = hold;
+}
+
+void funcstate_printsig(fstate_t* fn) {
+	write_funcsig(fn->name, funcstate_joinargs(fn, true),
+			fn->body);
+}
+
+void funcstate_invoke(fstate_t* fn) {
+	write_invoke(fn->name, funstate_joinargs(fn, false));
 }
