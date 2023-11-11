@@ -13,6 +13,9 @@
 #include <gc.h>
 
 #include "ekipp.h"
+#include "machine.h"
+
+#include "machine-gen.i"
 
 #define MAX_TOKEN 8
 
@@ -49,17 +52,7 @@ uint8_t* yydefeval(uint8_t* code);
 %token DEFEVAL DEFINE EXCHANGE
 
 %left  '*' '/' '%' POW
-%left  '+' '-'
-%right SHL SHR
-
-%union {
-	int64_t 	ival;
-	uint8_t*	sval;
-	int		cmpval;
-}
-
-%type <ival> expr
-%type <sval> quot
+%l> quot
 %type <sval> dlmt
 
 %start prep
@@ -94,6 +87,47 @@ main : exit
      | pats
      | xchn
      | '\n'
+     ;
+
+txpr: term '+' term      { gen_add(&vmcodep);    }
+    | term '-' term      { gen_sub(&vmcodep);    }
+    | term '*' term      { gen_mul(&vmcodep);    }
+    | term '&' term      { gen_and(&vmcodep);    }
+    | term '%' term	 { gen_rem(&vmcodep);    }
+    | term '|' term      { gen_or(&vmcodep);     }
+    | term '<' term      { gen_lt(&vmcodep);     }
+    | term '>' term	 { gen_gt(&vmcodep);     }
+    | term '^' term	 { gen_xor(&vmcodep);    }
+    | ftrm '+' ftrm	 { gen_fadd(&vmcodep);   }
+    | ftrm '-' ftrm	 { gen_fsub(&vmcodep);   }
+    | ftrm '*' ftrm	 { gen_fmul(&vmcodep);	 }
+    | ftrm '/' ftrm	 { gen_fdiv(&vmcodep);	 }
+    | ftrm POW ftrm	 { gen_fpow(&vmcodep);   }
+    | term DIV ftrm	 { gen_idiv(&vmcodep);   }
+    | term AND term	 { gen_land(&vmcodep);   }
+    | term OR  term	 { gen_lor(&vmcodep);    }
+    | term POW term	 { gen_pow(&vmcodep);	 }
+    | term SHR term	 { gen_shr(&vmcodep);	 }
+    | term SHL term	 { gen_shl(&vmcodep);	 }
+    | term GE  term	 { gen_ge(&vmcodep);	 }
+    | term LE  term 	 { gen_le(&vmcodep);	 }
+    | term EQ  term	 { gen_eq(&vmcodep);	 }
+    | term NE  term	 { gen_ne(&vmcodep);	 }
+    | '!' term           { gen_not(&vmcodep);    }
+    | '-' term           { gen_neg(&vmcodep);    }
+    | term
+    | ftrm
+    ;
+
+
+term : '(' txpr ')'
+     | IDENT '(' targ ')'
+     | IDENT
+     | NUM
+     ;
+
+targ : txpr ',' targ
+     | txpr
      ;
 
 call : CALL_PREFIX
