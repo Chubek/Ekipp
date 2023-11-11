@@ -102,21 +102,47 @@ main : exit
      | substitute
      | patsub
      | exchange
+     | template
      | '\n'
      ;
+
+template : DELIM_TEMPLATE_BEGIN program DELIM_TEMPLATE_END
+	 ;
+
+program : program function
+	|
+	;
+
+function : FUNC IDENT { locals = 0; nonparams = 0; } '(' params ')'
+	 vars		{ insert_func($<sval>2, vmcodep, 
+	 			locals, nonparams);	}
+	 stats RETURN expr ';'
+	 END FUNC ';'	{ gen_return(&vmcodep, -adjust(locals); }
+	 ;
+
+params : IDENT ':' TYPE ',' { insert_local($<sval>1, 
+       				$<tval>3); } params
+       | IDENT ':' TYPE	    { insert_local($<sval>1, 
+       				$<tval>3); }
+       |
+       ;
 
 vars : vars VAR IDENT ':' TYPE ';' { insert_local($<sval>3,
      							$<tval>5);
      					nonparams++;		      }
-     | IDENT ':' TYPE 
+     | vars IDENT ':' TYPE 
      		INIT_ASSIGN txpr ';' { insert_local($<sval>1, $<tval>3);
 					gen_storelocal(&vmcodep, 
-					  var_offset($<sval>1);	       }
+					  var_offset($<sval>1));	      									 }
+     |
+     ;
 
 stats : stats stat ';'
+      |
       ;
 
 commastats : commastats ',' stats
+	   |
 	   ;
 
 stat : IF txpr THEN   { gen_zbranch(&vmcodep, 0); $<instp>$ = vmcodep; }
@@ -136,12 +162,14 @@ stat : IF txpr THEN   { gen_zbranch(&vmcodep, 0); $<instp>$ = vmcodep; }
      | IDENT '=' txpr       { gen_storelocal(&vmcodep, 
      					var_offset($<sval>1));		}
      | OUTPUT IDENT	       { gen_output(&vmcodep);			}
-     | 
+     | txpr		    { gen_drop(&vmcodep);			}
+     |
      ;
 
 dopart : DO { gen_branch(&vmcodep, 0); $<instp>$ = vmcodep;
        		vm_target2Cell(vmcodep, $<instp>0[-1]); 	        }
 	  stats { $$ = $<instp>2;	}
+       | { $$ = <instp>0;		}
        ;
           
 
@@ -149,6 +177,7 @@ elsepart : ELSE { gen_branch(&vmcodep, 0); $<instp>$ = vmcodep;
      	    vm_target2Cell(vmcodep, $<instp>0[-1]); }
             stats { $$ = $<instp>2; }
 	 |  { $$ = <instp>0;	}
+	 |
 	 ;
 
 
@@ -185,6 +214,13 @@ txpr : term '+' term     { gen_add(&vmcodep);     }
      | string '+' string { gen_strcat(&vmcodep);  }
      | '!' term          { gen_not(&vmcodep);     }
      | '-' term          { gen_neg(&vmcodep);     }
+     | OPENFILE term
+     	  FOR	term     { gen_openfile(&vmcodep);  }
+     | WRITEFILE term 
+     	  FROM	 term    { gen_writefile(&vmcodep); }
+     | READFILE term
+          INTO  term	 { gen_readfile(&vmcodep);  }
+     | CLOSEFILE term	 { gen_closefile(&vmcodep); }
      | term
      | fterm
      ;
@@ -200,6 +236,8 @@ term : '(' txpr ')'
      | IDENT			{ gen_loadlocal(&vmcodep, 
      					var_offset($<sval>1));	    }
      | NUM			{ gen_litnum(&vmcodep, $<ival>1);   }
+     | string
+     | fterm
      ;
 
 targ : txpr ',' targ
