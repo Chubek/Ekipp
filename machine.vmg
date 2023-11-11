@@ -6,6 +6,7 @@
 \E s" char *" single data-stack type-prefix a
 \E s" long double" single data-stack type-prefix f
 \E s" void*" single data-stack type-prefix ptr
+\E s" unsigned char *" single data-stack type-prefix str
 \E s" Inst *" single data-stack type-prefix target
 \E s" FILE *" single data-stack type-prefix file
 
@@ -18,7 +19,7 @@ i = i1-i2;
 mul ( i1 i2 -- i )
 i = i1*i2;
 
-div ( i1 i2 -- i )
+idiv ( i1 i2 -- i )
 i = i1/i2;
 
 rem ( i1 i2 -- i )
@@ -48,51 +49,58 @@ i = i1 >> i2;
 shl ( i1 i2 -- i )
 i = i1 << i2;
 
-binand ( i1 i2 -- i )
+and ( i1 i2 -- i )
 i = i1 & i2;
 
-binor ( i1 i2 -- i )
+or ( i1 i2 -- i )
 i = i1 | i2;
 
-binxor ( i1 i2 -- i )
+xor ( i1 i2 -- i )
 i = i1 ^ i2;
 
-logand ( i1 i2 -- i )
+land ( i1 i2 -- i )
 i = i1 && i2;
 
-logor ( i1 i2 -- i )
+lor ( i1 i2 -- i )
 i = i1 || i2;
 
-lessthan ( i1 i2 -- i )
+lt ( i1 i2 -- i )
 i = i1<i2;
 
-lessthaneq ( i1 i2 -- i )
+le ( i1 i2 -- i )
 i = i1<=i2;
 
-greaterthan ( i1 i2 -- i )
+gt ( i1 i2 -- i )
 i = i1>i2;
 
-greaterthaneq ( i1 i2 -- i )
+ge ( i1 i2 -- i )
 i = i1>=i2;
 
-equals ( i1 i2 -- i )
+eq ( i1 i2 -- i )
 i = i1==i2;
 
-unequals ( i1 i2 -- i )
+ne ( i1 i2 -- i )
 i = i1 != i2;
 
 not ( i1 -- i2 )
 i2 = !i1;
 
-negate ( i1 -- i2 )
+neg ( i1 -- i2 )
 i2 = -i1;
 
-lit ( #i -- i )
+litnum ( #i -- i )
+litptr ( #ptr -- ptr )
+litflt ( #f -- f )
+litstr ( #str -- str )
+litfile ( #file -- file )
 
 drop ( i -- )
 
 print ( i -- )
 printf("%ld\n", i);
+
+output ( a -- )
+fputs(a, yyout);
 
 fileopen ( apath amode -- fileres )
 fileres = fopen(apath, amode);
@@ -140,11 +148,29 @@ sp = (Cell *)(((char *)sp)+iadjust);
 fp = afp;
 ptr2=ptr1;
 
-loadlocal ( #ioffset -- ptr )
-vm_Cell2ptr(*(Cell *)(fp+ioffset),ptr);
+loadlocalstr ( #ioffset -- str )
+vm_Cell2str(*(Cell *)(fp+ioffset),ptr);
 
-storelocal ( #ioffset ptr -- )
-vm_ptr2Cell(ptr,*(Cell *)(fp+ioffset));
+storelocalstr ( #ioffset str -- )
+vm_str2Cell(ptr,*(Cell *)(fp+ioffset));
+
+loadlocalnum ( #ioffset -- i )
+vm_Cell2i(*(Cell *)(fp+ioffset),ptr);
+
+storelocalnum ( #ioffset i -- )
+vm_i2Cell(ptr,*(Cell *)(fp+ioffset));
+
+loadlocalflt ( #ioffset -- f )
+vm_Cell2f(*(Cell *)(fp+ioffset),ptr);
+
+storelocalflt ( #ioffset f -- )
+vm_f2Cell(ptr,*(Cell *)(fp+ioffset));
+
+loadlocalfile ( #ioffset -- file )
+vm_Cell2file(*(Cell *)(fp+ioffset),ptr);
+
+storelocalfile ( #ioffset file -- )
+vm_file2Cell(ptr,*(Cell *)(fp+ioffset));
 
 end ( ptr -- )
 #ifdef VM_PROFILING
