@@ -38,6 +38,11 @@ extern  void	  yyparse_body(void);
 extern  uint8_t*  YYCURSOR;
 
 uint8_t* yydefeval(uint8_t* code);
+
+Label *vm_prim;
+Inst  *vmcodep;
+FILE  *vm_out;
+int   vm_debug;
 %}
 
 %token ENGAGE_PREFIX CALL_PREFIX CALL_SUFFIX DEF_PREFIX DLEFT DRIGHT QLEFT QRIGHT
@@ -47,13 +52,24 @@ uint8_t* yydefeval(uint8_t* code);
 %token ARG_NUM ARG_IDENT ARG_STR IDENT
 %token DIVERT UNDIVERT
 %token EXIT ERROR PRINT PRINTF ENVIRON FILEPATH SEARCH ARGV CURRENT
-%token GE LE EQ NE SHR SHL POW INCR DECR IFEX CHEVRON XCHN_MARK
-%token DIVNUM NUM
+%token GE LE EQ NE SHR SHL POW DIV AND OR INCR DECR IFEX CHEVRON XCHN_MARK
+%token DIVNUM NUM FLOATNUM
 %token DEFEVAL DEFINE EXCHANGE
 
-%left  '*' '/' '%' POW
-%l> quot
-%type <sval> dlmt
+%left    '*' '/' '%' POW
+%left    '%' GT GE LT LE
+%right    AND OR '&' '|' '^'
+%nonassoc EQ NE
+
+%union {
+	intmax_t	ival;
+	long double	fval;
+	uint8_t*	sval;
+	int		tval;
+	Inst*		instp;
+}
+
+%type <sval> delimited
 
 %start prep
 %%
@@ -63,67 +79,127 @@ prep :
      ;
 
 main : exit
-     | escp
-     | srch
-     | prnf
-     | prnt
-     | trns
-     | offs
+     | escape
+     | search
+     | printf
+     | print
+     | translit
+     | offset
      | ldir
      | date
      | catf
      | incl
-     | pdnl
-     | ifex
-     | ifre
-     | udvr
-     | divr
+     | dnl
+     | ifexec
+     | ifregex
+     | undivert
+     | divert
      | dlim
      | exec
      | eval
-     | defn
+     | define
      | call
-     | subs
-     | pats
-     | xchn
+     | substitute
+     | patsub
+     | exchange
      | '\n'
      ;
 
-txpr: term '+' term      { gen_add(&vmcodep);    }
-    | term '-' term      { gen_sub(&vmcodep);    }
-    | term '*' term      { gen_mul(&vmcodep);    }
-    | term '&' term      { gen_and(&vmcodep);    }
-    | term '%' term	 { gen_rem(&vmcodep);    }
-    | term '|' term      { gen_or(&vmcodep);     }
-    | term '<' term      { gen_lt(&vmcodep);     }
-    | term '>' term	 { gen_gt(&vmcodep);     }
-    | term '^' term	 { gen_xor(&vmcodep);    }
-    | ftrm '+' ftrm	 { gen_fadd(&vmcodep);   }
-    | ftrm '-' ftrm	 { gen_fsub(&vmcodep);   }
-    | ftrm '*' ftrm	 { gen_fmul(&vmcodep);	 }
-    | ftrm '/' ftrm	 { gen_fdiv(&vmcodep);	 }
-    | ftrm POW ftrm	 { gen_fpow(&vmcodep);   }
-    | term DIV ftrm	 { gen_idiv(&vmcodep);   }
-    | term AND term	 { gen_land(&vmcodep);   }
-    | term OR  term	 { gen_lor(&vmcodep);    }
-    | term POW term	 { gen_pow(&vmcodep);	 }
-    | term SHR term	 { gen_shr(&vmcodep);	 }
-    | term SHL term	 { gen_shl(&vmcodep);	 }
-    | term GE  term	 { gen_ge(&vmcodep);	 }
-    | term LE  term 	 { gen_le(&vmcodep);	 }
-    | term EQ  term	 { gen_eq(&vmcodep);	 }
-    | term NE  term	 { gen_ne(&vmcodep);	 }
-    | '!' term           { gen_not(&vmcodep);    }
-    | '-' term           { gen_neg(&vmcodep);    }
-    | term
-    | ftrm
-    ;
+vars : vars VAR IDENT ':' TYPE ';' { insert_local($<sval>3,
+     							$<tval>5);
+     					nonparams++;		      }
+     | IDENT ':' TYPE 
+     		INIT_ASSIGN txpr ';' { insert_local($<sval>1, $<tval>3);
+					gen_storelocal(&vmcodep, 
+					  var_offset($<sval>1);	       }
 
+stats : stats stat ';'
+      ;
+
+commastats : commastats ',' stats
+	   ;
+
+stat : IF txpr THEN   { gen_zbranch(&vmcodep, 0); $<instp>$ = vmcodep; }
+       stats	      { $<instp>$ = $<instp>4; }
+       elsepart END IF { BB_BOUNDARY; 
+       			 vm_target2Cell(vmcodep, $<instp>7[-1]);	}
+     | WHILE    { BB_BOUNDARY; $<instp>$ = vmcodep;	} 
+       txpr DO  { gen_zbranch(&vmcodep, 0); $<instp>$ = vmcodep;  	}
+       stats END WHILE { gen_branch(&vmcodep, $<instp>2);
+       			vm_target2Cell(vmcodep, $<instp>5[-1]);		}
+     | FOR '(' VAR IDENT ';' { insert_local($<sval>3, VAR_INT);		}
+     		txpr ';'     { gen_zbranch(&vmcodep, 0);
+			        $<instp>$ = vmcodep;			}
+		commstats ')'     { $<instp>$ = $<instp>8;		}
+	dopart END FOR	      { BB_BOUNDARY; vm_target2Cell(vmcodep,
+						$<instp>10[-1]);	}
+     | IDENT '=' txpr       { gen_storelocal(&vmcodep, 
+     					var_offset($<sval>1));		}
+     | OUTPUT IDENT	       { gen_output(&vmcodep);			}
+     | 
+     ;
+
+dopart : DO { gen_branch(&vmcodep, 0); $<instp>$ = vmcodep;
+       		vm_target2Cell(vmcodep, $<instp>0[-1]); 	        }
+	  stats { $$ = $<instp>2;	}
+       ;
+          
+
+elsepart : ELSE { gen_branch(&vmcodep, 0); $<instp>$ = vmcodep;
+     	    vm_target2Cell(vmcodep, $<instp>0[-1]); }
+            stats { $$ = $<instp>2; }
+	 |  { $$ = <instp>0;	}
+	 ;
+
+
+string : '"' STR_DQ_TXT '"' 		 { gen_litstr($<sval>2); }
+       | SQ STR_SQ_TXT SQ		 { gen_litstr($<sval>2); }
+       | TRIPLE_SQ STR_TSQ_TXT TRIPLE_SQ { gen_litstr($<sval>2); }
+       | TRIPLE_DQ STR_TDQ_TXT TRIPLE_DQ { gen_litstr($<sval>2);	}
+       ;
+
+txpr : term '+' term     { gen_add(&vmcodep);     }
+     | term '-' term     { gen_sub(&vmcodep);     }
+     | term '*' term     { gen_mul(&vmcodep);     }
+     | term '&' term     { gen_and(&vmcodep);     }
+     | term '%' term	 { gen_rem(&vmcodep);     }
+     | term '|' term     { gen_or(&vmcodep);      }
+     | term '<' term     { gen_lt(&vmcodep);      }
+     | term '>' term	 { gen_gt(&vmcodep);      }
+     | term '^' term	 { gen_xor(&vmcodep);     }
+     | fterm '+' fterm	 { gen_fadd(&vmcodep);    }
+     | fterm '-' fterm	 { gen_fsub(&vmcodep);    }
+     | fterm '*' fterm	 { gen_fmul(&vmcodep);	  }
+     | fterm '/' fterm	 { gen_fdiv(&vmcodep);	  }
+     | fterm POW fterm	 { gen_fpow(&vmcodep);    }
+     | term DIV fterm	 { gen_idiv(&vmcodep);    }
+     | term AND term	 { gen_land(&vmcodep);    }
+     | term OR  term	 { gen_lor(&vmcodep);     }
+     | term POW term	 { gen_pow(&vmcodep);	  }
+     | term SHR term	 { gen_shr(&vmcodep);	  }
+     | term SHL term	 { gen_shl(&vmcodep);	  }
+     | term GE  term	 { gen_ge(&vmcodep);	  }
+     | term LE  term 	 { gen_le(&vmcodep);	  }
+     | term EQ  term	 { gen_eq(&vmcodep);	  }
+     | term NE  term	 { gen_ne(&vmcodep);	  }
+     | string '+' string { gen_strcat(&vmcodep);  }
+     | '!' term          { gen_not(&vmcodep);     }
+     | '-' term          { gen_neg(&vmcodep);     }
+     | term
+     | fterm
+     ;
+
+fterm : FLOATNUM			{ gen_litflt(&vmcodep,
+     				          	$<fval>1);          }
+     ;
 
 term : '(' txpr ')'
-     | IDENT '(' targ ')'
-     | IDENT
-     | NUM
+     | IDENT '(' targ ')'	{ gen_call(&vmcodep, 
+     					func_addr($<sval>1),
+					func_calladjust($<sval>1)); }
+     | IDENT			{ gen_loadlocal(&vmcodep, 
+     					var_offset($<sval>1));	    }
+     | NUM			{ gen_litnum(&vmcodep, $<ival>1);   }
      ;
 
 targ : txpr ',' targ
@@ -138,20 +214,20 @@ call : CALL_PREFIX
 					get_symbol($<sval>2));   }
      ;
 
-xchn : DEF_PREFIX
+exchange : DEF_PREFIX
        EXCHANGE '$' IDENT 
        XCHN_MARK IDENT '\n'     { exchange_symbol($<sval>2, 
        						  $<sval>4);	 }
 
-defn : DEF_PREFIX
+define : DEF_PREFIX
      	DEFINE '$'
 	IDENT CHEVRON 
-	quot		       { insert_symbol($<sval>4, 
+	quote		       { insert_symbol($<sval>4, 
 					$<sval>6);		}
      | DEF_PREFIX
      	DEFEVAL '$'
 	IDENT CHEVRON
-	quot		       { defeval_insert($<sval>4,
+	quote		       { defeval_insert($<sval>4,
 					$<sval>6);		}
      ;
 
@@ -162,59 +238,59 @@ exit : ENGAGE_PREFIX
 	  ARGNUM  '\n'	       { exit($<ival>4);		}
      ;
 
-escp : '\\' ESC_TEXT	      { fputs($<sval>2, yyout);	}
+escape : '\\' ESC_TEXT	      { fputs($<sval>2, yyout);	}
      ;
 
-srch : ENGAGE_PREFIX
+search : ENGAGE_PREFIX
          SEARCH '$'
-	  quot
+	  quote
 	  FILEPATH '\n'     {   reg_pattern = $<sval>4;
 	  			open_search_close($<sval>5);   }
      | ENGAGE_PREFIX
          SEARCH '$' 
-	  quot
+	  quote
 	  CURRENT '\n'      { 	reg_pattern = $<sval>4;
 	  			yyin_search();			}
      ;
 
-prnf : ENGAGE_PREFIX
+printf : ENGAGE_PREFIX
          PRINTF '$'
-	  quot { fmt = $<sval>4; } '(' args ')' 
+	  quote { fmt = $<sval>4; } '(' args ')' 
 	  		'\n' { print_formatted(); }
      ;
 
 
 args :
-     | argu ',' args	
-     | argu
+     | arguments ',' args	
+     | arguments
      ;
 
-argu : ARG_NUM			{ invoke_addarg($<sval>1); }
+arguments : ARG_NUM			{ invoke_addarg($<sval>1); }
      | ARG_STR			{ invoke_addarg($<sval>1); }
      | ARG_IDENT		{ invoke_addarg(get_symbol($<sval>1)); }
      ;
 
-prnt : ENGAGE_PREFIX
+print : ENGAGE_PREFIX
      	PRINT '$' ENVIRON 
-		quot  '\n'    { print_env($<sval>5);	}
+		quote  '\n'    { print_env($<sval>5);	}
      | ENGAGE_PREFIX
         PRINT '$' ARGV
 	        ARGNUM  '\n'    { print_argv($<ival>5);		}
      ;
 
-trns : ENGAGE_PREFIX
+translit : ENGAGE_PREFIX
         TRANSLIT '$'
-	quot '>'
-	quot '&'
-	quot '\n'	       { translit($<sval>4,  
+	quote '>'
+	quote '&'
+	quote '\n'	       { translit($<sval>4,  
 					$<sval>6,  
 					$<sval>8);		}
      ;
 
-offs : ENGAGE_PREFIX
+offset : ENGAGE_PREFIX
         OFFSET '$'
-	quot '?'
-	quot '\n'            { offset($<sval>4, 
+	quote '?'
+	quote '\n'            { offset($<sval>4, 
 				         $<sval>6);	}
 
      ;
@@ -226,7 +302,7 @@ ldir : ENGAGE_PREFIX
 
 date : ENGAGE_PREFIX
      	DATETIME '$'
-	quot '\n'            { format_time($<sval>4);   }
+	quote '\n'            { format_time($<sval>4);   }
      ;
 
 catf : ENGAGE_PREFIX
@@ -240,60 +316,60 @@ incl : ENGAGE_PREFIX
 	FILEPATH '\n'          { include_file($<sval>4);       }
      ;
 
-pdnl : ENGAGE_PREFIX
+dnl : ENGAGE_PREFIX
      	DNL '\n'	       { dnl();			       } 
      ;
 
-pats : ENGAGE_PREFIX
+patsub : ENGAGE_PREFIX
        PATSUB '$'
-       quot '?'
-       quot ':'
-       quot '\n'	      { patsub($<sval>4, 
+       quote '?'
+       quote ':'
+       quote '\n'	      { patsubub($<sval>4, 
        					$<sval>6, $<sval>8);   }
 
-subs : ENGAGE_PREFIX
+substitute : ENGAGE_PREFIX
        SUBSTITUTE '$'
-       quot '?'
-       quot ':'
-       quot '\n'	      { subst($<sval>4, 
+       quote '?'
+       quote ':'
+       quote '\n'	      { substitutet($<sval>4, 
        					$<sval>6, $<sval>8);   }
 
-ifex : ENGAGE_PREFIX
-     	quot IFEX quot 
-     	 '?' quot
-	 ':' quot '\n'      { ifelse_execmatch($<sval>2,
+ifexec : ENGAGE_PREFIX
+     	quote IFEX quote 
+     	 '?' quote
+	 ':' quote '\n'      { ifelse_execmatch($<sval>2,
 					$<sval>4,
 					$<sval>6,
 					$<sval>8,
 					$<cmpval>3);           }
      ;
 
-ifre : ENGAGE_PREFIX
+ifregex : ENGAGE_PREFIX
      	REGEX 	'$' 
-	quot  '?'
-	quot	':'
-	quot	'\n'		{ reg_pattern    = $<sval>2;
+	quote  '?'
+	quote	':'
+	quote	'\n'		{ reg_pattern    = $<sval>2;
 				  reg_input      = $<sval>4;
 				  reg_matchmsg 	 = $<sval>6;
 				  reg_nomatchmsg = $<sval>8;
 				  ifelse_regmatch();		 }
      ;
 
-udvr : ENGAGE_PREFIX
+undivert : ENGAGE_PREFIX
      	 UNDIVERT '$' 
 	 DIVNUM  '\n'    	{  unswitch_output();	
 	 			   unset_divert($<ival>4);       }
      ;
 
-divr : ENGAGE_PREFIX
+divert : ENGAGE_PREFIX
          DIVERT '$' 
 	 DIVNUM '\n'	        { set_divert($<ival>4);
 	 			  switch_output(current_divert); }
      ;
 
 dlim : ENGAGE_PREFIX
-	EXEC_DELIM '$' quot
-	  '|' dlmt '\n'    { delim_command = $<sval>4;
+	EXEC_DELIM '$' quote
+	  '|' delimited '\n'    { delim_command = $<sval>4;
 	  			  init_delim_stream($<sval>6);
 				  exec_delim_command();	         }
      ;
@@ -302,13 +378,13 @@ dlim : ENGAGE_PREFIX
 
 exec : ENGAGE_PREFIX
      	EXEC '$' 
-	     quot '\n'	       { exec_command($<sval>4);	 }
+	     quote '\n'	       { exec_command($<sval>4);	 }
 
      ;
 
-dlmt : DLEFT ENCLOSED DRIGHT   { $$ = gc_strdup($<sval>2);       }
+delimited : DLEFT ENCLOSED DRIGHT   { $$ = gc_strdup($<sval>2);       }
 
-quot : QLEFT ENCLOSED QRIGHT   { $$ = gc_strdup($<sval>2);	 }
+quote : QLEFT ENCLOSED QRIGHT   { $$ = gc_strdup($<sval>2);	 }
      ;
 
 eval : ENGAGE_PREFIX 
