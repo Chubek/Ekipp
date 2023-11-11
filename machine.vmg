@@ -1,0 +1,156 @@
+\E stack data-stack sp Cell
+
+\E inst-stream stack-prefix #
+
+\E s" long"   single data-stack type-prefix i
+\E s" char *" single data-stack type-prefix a
+\E s" long double" single data-stack type-prefix f
+\E s" void*" single data-stack type-prefix ptr
+\E s" Inst *" single data-stack type-prefix target
+\E s" FILE *" single data-stack type-prefix file
+
+add ( i1 i2 -- i )
+i = i1+i2;
+
+sub ( i1 i2 -- i )
+i = i1-i2;
+
+mul ( i1 i2 -- i )
+i = i1*i2;
+
+div ( i1 i2 -- i )
+i = i1/i2;
+
+rem ( i1 i2 -- i )
+i = i1%i2;
+
+pow ( i1 i2 -- i )
+i = powl((long double)i1, (long double)i2);
+
+fadd ( i1 f2 -- f )
+f = f1+f2;
+
+fsub ( f1 f2 -- f )
+f = f1-f2;
+
+fmul ( f1 f2 -- f )
+f = f1*f2;
+
+fdiv ( f1 f2 -- f )
+f = f1/f2;
+
+fpow ( f1 f2 -- f )
+f = powl(f1, f2);
+
+shr ( i1 i2 -- i )
+i = i1 >> i2;
+
+shl ( i1 i2 -- i )
+i = i1 << i2;
+
+binand ( i1 i2 -- i )
+i = i1 & i2;
+
+binor ( i1 i2 -- i )
+i = i1 | i2;
+
+binxor ( i1 i2 -- i )
+i = i1 ^ i2;
+
+logand ( i1 i2 -- i )
+i = i1 && i2;
+
+logor ( i1 i2 -- i )
+i = i1 || i2;
+
+lessthan ( i1 i2 -- i )
+i = i1<i2;
+
+lessthaneq ( i1 i2 -- i )
+i = i1<=i2;
+
+greaterthan ( i1 i2 -- i )
+i = i1>i2;
+
+greaterthaneq ( i1 i2 -- i )
+i = i1>=i2;
+
+equals ( i1 i2 -- i )
+i = i1==i2;
+
+unequals ( i1 i2 -- i )
+i = i1 != i2;
+
+not ( i1 -- i2 )
+i2 = !i1;
+
+negate ( i1 -- i2 )
+i2 = -i1;
+
+lit ( #i -- i )
+
+drop ( i -- )
+
+print ( i -- )
+printf("%ld\n", i);
+
+fileopen ( apath amode -- fileres )
+fileres = fopen(apath, amode);
+
+fileread ( filehandle -- areadres )
+fseek(filehandle, 0, SEEK_END);
+long len = ftell(filehandle);
+areadres = GC_MALLOC(len);
+fread(areadres, len, 1, filehandle);
+
+filewrite ( filehandle awritetxt )
+fwrite(awritetxt, u8_strlen((unsigned char)awritetxt), 1, filehandle);
+
+fileclose ( filehandle )
+fclose(filehandle);
+
+libopen ( apath -- ptrhandle )
+ptrhandle = dlopen(apath, RTLD_GLOBAL);
+
+libsym ( ptrhandle aname -- ptrres )
+ptrres = dlsym(ptrhandle, aname);
+
+libclose ( ptrhandle -- )
+dlclose(ptrhndle);
+
+branch ( #target -- )
+SET_IP(target);
+
+zbranch ( #target i -- )
+if (i==0) {
+  SET_IP(target);
+  INST_TAIL;
+}
+
+call ( #target #iadjust -- targetret aoldfp )
+targetret = IP;
+SET_IP(target);
+aoldfp = fp;
+sp = (Cell *)(((char *)sp)+iadjust);
+fp = (char *)sp;
+
+return ( #iadjust target afp ptr1 -- ptr2 )
+SET_IP(target);
+sp = (Cell *)(((char *)sp)+iadjust);
+fp = afp;
+ptr2=ptr1;
+
+loadlocal ( #ioffset -- ptr )
+vm_Cell2ptr(*(Cell *)(fp+ioffset),ptr);
+
+storelocal ( #ioffset ptr -- )
+vm_ptr2Cell(ptr,*(Cell *)(fp+ioffset));
+
+end ( ptr -- )
+#ifdef VM_PROFILING
+block_insert(IP);
+#endif
+return ptr;
+
+ll = loadlocal lit
+
