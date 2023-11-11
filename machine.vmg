@@ -149,28 +149,34 @@ fp = afp;
 ptr2=ptr1;
 
 loadlocalstr ( #ioffset -- str )
-vm_Cell2str(*(Cell *)(fp+ioffset),ptr);
+vm_Cell2str(*(Cell *)(fp+ioffset),str);
 
 storelocalstr ( #ioffset str -- )
-vm_str2Cell(ptr,*(Cell *)(fp+ioffset));
+vm_str2Cell(str,*(Cell *)(fp+ioffset));
+
+loadlocalptr ( #ioffset -- str )
+vm_Cell2ptr(*(Cell *)(fp+ioffset),ptr);
+
+storelocalptr ( #ioffset str -- )
+vm_ptr2Cell(ptr,*(Cell *)(fp+ioffset));
 
 loadlocalnum ( #ioffset -- i )
-vm_Cell2i(*(Cell *)(fp+ioffset),ptr);
+vm_Cell2i(*(Cell *)(fp+ioffset),i);
 
 storelocalnum ( #ioffset i -- )
-vm_i2Cell(ptr,*(Cell *)(fp+ioffset));
+vm_i2Cell(i,*(Cell *)(fp+ioffset));
 
 loadlocalflt ( #ioffset -- f )
-vm_Cell2f(*(Cell *)(fp+ioffset),ptr);
+vm_Cell2f(*(Cell *)(fp+ioffset),f);
 
 storelocalflt ( #ioffset f -- )
-vm_f2Cell(ptr,*(Cell *)(fp+ioffset));
+vm_f2Cell(f,*(Cell *)(fp+ioffset));
 
 loadlocalfile ( #ioffset -- file )
-vm_Cell2file(*(Cell *)(fp+ioffset),ptr);
+vm_Cell2file(*(Cell *)(fp+ioffset),file);
 
 storelocalfile ( #ioffset file -- )
-vm_file2Cell(ptr,*(Cell *)(fp+ioffset));
+vm_file2Cell(file,*(Cell *)(fp+ioffset));
 
 end ( ptr -- )
 #ifdef VM_PROFILING
