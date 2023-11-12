@@ -65,6 +65,7 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 %x DQ_STR
 %x TBT_STR
 %x TYY
+%x IMP
 %s DIV1
 %s DIV2
 %%
@@ -184,6 +185,12 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 <INITIAL>.    ECHO;
 
 <INITIAL>\n   { ECHO; return *yytext; }
+
+<TMPL>import	         { BEGIN(IMP); return IMPORT; }
+<IMP>[a-zA-Z\_\-\.]{255} { yylval.sval = gc_strdup(&yytext[0]);
+				BEGIN(TMPL);
+				return NAMESPACE;	  }
+
 
 <ENG>eq		{ yylval.cmpval = IFEXEC_EQ; return IFEX; }
 <ENG>ne		{ yylval.cmpval = IFEXEC_NE; return IFEX; }

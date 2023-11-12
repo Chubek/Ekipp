@@ -128,6 +128,9 @@ program : program function
 	|
 	;
 
+import : IMPORT NAMESPACE ';' {  resolve_namespace($<sval>2);	}
+
+
 function : FUNC IDENT   { locals = 0; nonparams = 0; } '(' params ')'
 	 vars		{ insert_func($<sval>2, vmcodep, 
 	 			locals, nonparams);	}
@@ -248,12 +251,15 @@ txpr : term '+' term     { gen_add(&vmcodep);     }
      | term LE  term 	 { gen_le(&vmcodep);	  }
      | term EQ  term	 { gen_eq(&vmcodep);	  }
      | term NE  term	 { gen_ne(&vmcodep);	  }
-     | string '+' string { gen_strcat(&vmcodep);  }
      | '!' term          { gen_not(&vmcodep);     }
      | '-' term          { gen_neg(&vmcodep);     }
      | term
+     | scat
      ;
 
+scat : scat string '+' string           { gen_strcat(&vmcodep);  }
+     | 
+     ;
 
 fterm : FLOATNUM			{ gen_litflt(&vmcodep,
      				          	$<fval>1);          }

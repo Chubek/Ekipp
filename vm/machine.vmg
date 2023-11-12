@@ -99,23 +99,67 @@ drop ( i -- )
 print ( i -- )
 printf("%ld\n", i);
 
-output ( a -- )
-fputs(a, yyout);
 
-fileopen ( apath amode -- fileres )
-fileres = fopen(apath, amode);
+input ( #ifd -- str )
+FILE* inpfile;
+switch (ifd) {
+	case 0:
+		inpfile = stdin;
+		break;
+	case 1:
+		inpfile = stdout;
+		break;
+	case 2:
+		inpfile = stderr;
+		break;
+	case 3:
+		inpfile = yyout;
+		break;
+	default:
+		break;
+}
+fseek(inpfile, 0, SEEK_END);
+long len = ftell(inpfile);
+rewind(inpfile);
+str = GC_MALLOC(len);
+fread(str, len, 1, inpfile);
 
-fileread ( filehandle -- areadres )
-fseek(filehandle, 0, SEEK_END);
-long len = ftell(filehandle);
-areadres = GC_MALLOC(len);
-fread(areadres, len, 1, filehandle);
+output ( #ifd str -- )
+FILE* outfile;
+switch (ifd) {
+	case 0:
+		outfile = stdin;
+		break;
+	case 1:
+		outfile = stdout;
+		break;
+	case 2:
+		outfile = stderr;
+		break;
+	case 3:
+		inpfile = yyout;
+		break;
+	default:
+		break;
+}
+fwrite(str, u8_strlen(str), 1, outfile);
 
-filewrite ( filehandle awritetxt )
-fwrite(awritetxt, u8_strlen((unsigned char)awritetxt), 1, filehandle);
+input_handle ( file -- str )
+fseek(file, 0, SEEK_END);
+long len = ftell(file);
+rewind(file);
+str = GC_MALLOC(len);
+fread(str, len, 1, file);
 
-fileclose ( filehandle )
-fclose(filehandle);
+output_handle ( file str -- )
+fwrite(str, u8_strlen(str), 1, file);
+
+strcat ( str1 str2 -- str )
+size_t l1 = u8_strlen(str1);
+size_t l2 = u8_strlen(str2);
+str = GC_MALLOC(l1 + l2 + 1);
+u8_strncat(&str[0], &str1[0], l1);
+u8_strncat(&str[l1 - 1], &str2[0], l2);
 
 libopen ( apath -- ptrhandle )
 ptrhandle = dlopen(apath, RTLD_GLOBAL);
