@@ -52,6 +52,27 @@ void printarg_a(char *a) { fprintf(vm_out, "%p ", a); }
 
 void printarg_Cell(Cell i) { fprintf(vm_out, "0x%lx ", i.i); }
 
+extern FILE* yyin;
+extern int   yyparse(void);
+
+void resolve_namespace(uint8_t* path) {
+  uint8_t path_new[FILENAME_MAX + 1] = {0};
+  uint8_t chr 			     = 0;
+  int 	  ptr			     = 0;
+  while ((chr = *path)) {
+	if (chr == '.')
+		path_new[ptr++] = '/';
+	else
+		path_new[ptr++] = chr;
+  }
+  
+  FILE* inhold 		= yyin;
+  yyin			= fopen(&path_new[0], "r");
+  yyparse();
+  fclose(yyin);
+  yyin			= inhold;
+}
+
 typedef struct FuncTable {
   struct FuncTable *next;
   char *name;
@@ -62,7 +83,6 @@ typedef struct FuncTable {
 
 FuncTable *ftab = NULL;
 
-/* note: does not check for double definitions */
 void insert_func(char *name, Inst *start, int locals, int nonparams) {
   FuncTable *node = malloc(sizeof(FuncTable));
 
