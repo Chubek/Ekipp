@@ -60,7 +60,7 @@ int   vm_debug;
 %token OPENFILE READFILE WRITEFILE CLOSEFILE
 %token STR_DQ_TXT STR_SQ_TXT
 %token TRIPLE_SQ TRIPLE_DQ SQ
-
+%token DELIM_TEMPLATE_BEGIN DELIM_TEMPLATE_END
 
 %left    '*' '/' '%' POW
 %left    '%' GT GE LT LE
