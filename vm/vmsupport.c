@@ -3,8 +3,10 @@
 #include <unistd.h>
 extern int optind;
 
-#include "machine.h"
 #include <assert.h>
+#include <gc.h>
+
+#include "machine.h"
 
 void genarg_i(Inst **vmcodepp, long i) {
   vm_i2Cell(i, *((Cell *)*vmcodepp));
@@ -84,7 +86,7 @@ typedef struct FuncTable {
 FuncTable *ftab = NULL;
 
 void insert_func(char *name, Inst *start, int locals, int nonparams) {
-  FuncTable *node = malloc(sizeof(FuncTable));
+  FuncTable *node = GC_MALLOC(sizeof(FuncTable));
 
   node->next = ftab;
   node->name = name;
@@ -113,19 +115,20 @@ long func_calladjust(char *name) {
 typedef struct VarTable {
   struct VarTable *next;
   char *name;
+  int type;
   int index;
 } VarTable;
 
 VarTable *vtab;
 
-/* no checking for double definitions */
-void insert_local(char *name) {
-  VarTable *node = malloc(sizeof(VarTable));
+void insert_local(char *name, int type) {
+  VarTable *node = GC_MALLOC(sizeof(VarTable));
 
   locals++;
-  node->next = vtab;
-  node->name = name;
-  node->index = locals;
+  node->next 	= vtab;
+  node->name	= name;
+  node->type 	= type;
+  node->index 	= locals;
   vtab = node;
 }
 
@@ -143,6 +146,10 @@ long var_offset(char *name) {
   return (locals - lookup_var(name)->index + 2) * sizeof(Cell);
 }
 
+int var_type(char* name) {
+  return lookup_var(name)->type;
+}
+
 typedef struct HandleTable {
   struct HandleTable *next;
   char *name;
@@ -153,7 +160,7 @@ typedef struct HandleTable {
 HandleTable *htab;
 
 void insert_handle(char *name, FILE *handle) {
-  HandleTable *node = malloc(sizeof(HandleTable));
+  HandleTable *node = GC_MALLOC(sizeof(HandleTable));
 
   locals++;
   node->next = htab;
