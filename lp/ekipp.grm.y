@@ -176,6 +176,23 @@ commastats : commastats ',' stats
 	   |
 	   ;
 
+markdown : SIN_ASTER MD_TEXT SIN_ASTER { gen_md(MD_IT, $<sval>2); 	}
+	 | DUB_ASTER MD_TEXT DUB_ASTER { gen_md(MD_BL, $<sval>2); 	}
+	 | TRI_ASTER MD_TEXT TRI_ASTER { gen_md(MD_BL | MD_IT, 
+	 						$<sval>2);	}
+	 | SIN_BTCK MD_TEXT SIN_BTCK   { gen_md(MD_INLC, $<sval>2);	}
+	 | TRI_BTCK MD_TEXT TRI_BTCK   { gen_md(MD_MLNC, $<sval>2);	}
+	 | SIN_GT   MD_TEXT LF_TERM    { gen_md(MD_SQUO, $<sval>2);	}
+	 | BRACK_TEXT PAREN_TEXT       { gen_md(MD_LNK, $<sval>1,
+	 						$<sval>2);	}
+	 | IMG_TXT PAREN_TXT	       { gen_md(MD_IMG, $<sval>1,
+	 						$<sval>2);	}
+	 | DUB_PIPE PAREN_TXT DUB_PIPE { gen_md(MD_TH, $<sval>2);	}
+	 | SIN_PIPE PAREN_TXT SIN_PIPE { gen_md(MD_TD, $<sval>2);	}
+	 | MULT_DASH		       { gen_md(MD_TR, $<sval>2);	}
+	 |
+	 ;
+
 stat : IF txpr THEN   { gen_zbranch(&vmcodep, 0); $<instp>$ = vmcodep; }
        stats	      { $<instp>$ = $<instp>4; }
        elsepart END IF { BB_BOUNDARY; 
