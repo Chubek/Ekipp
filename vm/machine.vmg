@@ -227,6 +227,3 @@ end ( ptr -- )
 block_insert(IP);
 #endif
 return ptr;
-
-ll = loadlocal lit
-
