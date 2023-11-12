@@ -192,6 +192,20 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 				return NAMESPACE;	  }
 
 
+<ENG>"change-token" 		return CHANGETOKEN;
+<ENG>"engage-prefix" 		return ENGAGEPREFIX;
+<ENG>"define-prefix" 		return DEFPREFIX;
+<ENG>"call-prefix"   		return CALLPREFIX;
+<ENG>"call-suffix"   		return CALLSUFFIX;
+<ENG>"quote-left"    		return QUOTELEFT;
+<ENG>"quote-right"   		return QUOTERIGHT;
+<ENG>"delim-left"    		return DELIMLEFT;
+<ENG>"delim-right"   		return DELIMRIGHT;
+<ENG>"comment-left"  		return COMMENTLEFT;
+<ENG>"comment-right" 		return COMMENTRIGHT;
+<ENG>"template-delim-left" 	return TMPLDELIMLEFT;
+<ENG>"template-delim-right" 	return TMPLDELIMRIGHT;
+
 <ENG>eq		{ yylval.cmpval = IFEXEC_EQ; return IFEX; }
 <ENG>ne		{ yylval.cmpval = IFEXEC_NE; return IFEX; }
 <ENG>gt		{ yylval.cmpval = IFEXEC_GT; return IFEX; }
