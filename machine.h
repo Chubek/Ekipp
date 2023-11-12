@@ -78,12 +78,19 @@ long engine_debug(Inst *ip0, Cell *sp, char *fp);
 int yyparse(void);
 
 /* mini-specific functions */
-void insert_func(char *name, Inst *start, int locals, int nonparams);
-Inst *func_addr(char *name);
-long func_calladjust(char *name);
-void insert_local(char *name);
-long var_offset(char *name);
+void  insert_func(char *name, Inst *start, int locals, int nonparams);
+Inst* func_addr(char *name);
+long  func_calladjust(char *name);
+void  insert_local(char *name);
+long  var_offset(char *name);
+void  handle_insert(char* name, FILE* handle);
+FILE* get_handle(char* name);
 void gen_main_end(void);
 
 /* stack pointer change for a function with n nonparams */
 #define adjust(n)  ((n) * -sizeof(Cell))
+
+#define VAR_INT		1
+#define VAR_STR		2
+#define VAR_FLOAT	3
+
