@@ -37,6 +37,19 @@ extern  uint8_t*  body_code;
 extern  void	  yyparse_body(void);
 extern  uint8_t*  YYCURSOR;
 
+extern uint8_t engage_prefix_token[TOK_MAX + 1];
+extern uint8_t define_prefix_token[TOK_MAX + 1];
+extern uint8_t call_prefix_token[TOK_MAX + 1];
+extern uint8_t call_suffix_token[TOK_MAX + 1];
+extern uint8_t quote_left_token[TOK_MAX + 1];
+extern uint8_t quote_right_token[TOK_MAX + 1];
+extern uint8_t comment_left_token[TOK_MAX + 1];
+extern uint8_t comment_right_token[TOK_MAX + 1];
+extern uint8_t delim_left_token[TOK_MAX + 1];
+extern uint8_t delim_right_token[TOK_MAX + 1];
+extern uint8_t template_delim_left_token[TOK_MAX + 1];
+extern uint8_t template_delim_right_token[TOK_MAX + 1];
+
 uint8_t* yydefeval(uint8_t* code);
 
 long nonparams  = 0;
@@ -343,6 +356,54 @@ arguments : ARG_NUM			{ invoke_addarg($<sval>1); }
      | ARG_STR			{ invoke_addarg($<sval>1); }
      | ARG_IDENT		{ invoke_addarg(get_symbol($<sval>1)); }
      ;
+
+token : ENGAGE_PREFIX
+     	CHANGETOKEN 
+	  '$' ENGAGEPREFIX QUOTED { strncat(&engage_prefix_token[0],
+						$<sval>5);		}
+      | ENGAGE_PREFIX 
+        CHANGETOKEN 
+          '$' DEFPREFIX QUOTED { strncat(&define_prefix_token[0],
+                                                $<sval>5);              }
+      | ENGAGE_PREFIX 
+        CHANGETOKEN 
+          '$' CALLPREFIX QUOTED { strncat(&call_prefix_token[0],
+                                                $<sval>5);              }
+      | ENGAGE_PREFIX 
+        CHANGETOKEN 
+          '$' CALLSUFFIX QUOTED { strncat(&call_suffix_token[0],
+                                                $<sval>5);              }
+      | ENGAGE_PREFIX 
+        CHANGETOKEN 
+          '$' QUOTELEFT QUOTED { strncat(&quote_left_token[0],
+                                                $<sval>5);              }
+      | ENGAGE_PREFIX                   
+        CHANGETOKEN   
+          '$' QUOTERIGHT QUOTED { strncat(&quote_right_token[0],    
+                                                $<sval>5);              }
+      | ENGAGE_PREFIX                   
+        CHANGETOKEN   
+          '$' DELIMLEFT QUOTED { strncat(&delim_left_token[0],    
+                                                $<sval>5);              }
+      | ENGAGE_PREFIX                   
+        CHANGETOKEN   
+          '$' DELIMRIGHT QUOTED { strncat(&delim_right_token[0],    
+                                                $<sval>5);              }
+      | ENGAGE_PREFIX                   
+        CHANGETOKEN   
+          '$' COMMENTLEFT QUOTED { strncat(&comment_left_token[0],    
+                                                $<sval>5);              }
+      | ENGAGE_PREFIX                   
+        CHANGETOKEN   
+          '$' COMMENTRIGHT QUOTED { strncat(&comment_right_token[0],
+                                                $<sval>5);              }
+      | ENGAGE_PREFIX
+          '$' TMPLDELIMLEFT QUOTED { strncat(&template_delim_left[0],
+	   					$<sval>5);		}
+      | ENGAGE_PREFIX 
+          '$' TMPLDELIMRIGHT QUOTED { strncat(&template_delim_right[0],
+                                                $<sval>5);              }
+      ;
 
 print : ENGAGE_PREFIX
      	PRINT '$' ENVIRON 
