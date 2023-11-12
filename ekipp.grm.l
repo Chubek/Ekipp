@@ -47,6 +47,7 @@ Binary		[0bB][0-1]+
 Float		[0-9]*[eE\.][-+][0-9]+
 Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 
+%x TQUOTE
 %x ESC
 %x ENG
 %x REG
@@ -162,6 +163,9 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 <ARG>[^$^(^)^,^ ]+ { yylval.sval = gc_strdup(&yytext[0]);
 				return ARG_STR;         }
 
+<TMPL>quote'  		BEGIN(TQUOTE);
+<TQUOTE>.     		ECHO;
+<TQUOTE>'unquote	BEGIN(TMPL);
 
 <EVALS,TMPL>{Decimal}	 { yylval.ival = strtoll(yytext, NULL, 10); 
 				return NUM;      }
