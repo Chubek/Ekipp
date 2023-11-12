@@ -57,10 +57,10 @@ int   vm_debug;
 %token DEFEVAL DEFINE EXCHANGE
 %token FUNC RETURN VAR TYPE ELSE IF DO WHILE FOR END THEN
 %token INIT_ASSIGN OUTPUT
-%token OPENFILE READFILE WRITEFILE CLOSEFILE
-%token STR_DQ_TXT STR_SQ_TXT
-%token TRIPLE_SQ TRIPLE_DQ SQ
+%token OPENFILE READFILE WRITEFILE CLOSEFIL
+%token SQ DQ TBT SQ_TXT DQ_TXT TBT_TXT
 %token DELIM_TEMPLATE_BEGIN DELIM_TEMPLATE_END
+%token STD_IN STD_OUT STD_ERR FILE_THIS FILE_HANDLE
 
 %left    '*' '/' '%' POW
 %left    '%' GT GE LT LE
@@ -73,9 +73,15 @@ int   vm_debug;
 	uint8_t*	sval;
 	int		tval;
 	Inst*		instp;
+	struct {
+		uint8_t* name;
+		uint8_t* mode;
+	}
 }
 
 %type <sval> delimited
+%type <ival> expr
+
 
 %start prep
 %%
@@ -167,10 +173,33 @@ stat : IF txpr THEN   { gen_zbranch(&vmcodep, 0); $<instp>$ = vmcodep; }
 						$<instp>10[-1]);	}
      | IDENT '=' txpr       { gen_storelocal(&vmcodep, 
      					var_offset($<sval>1));		}
-     | OUTPUT IDENT	       { gen_output(&vmcodep);			}
+     | OUTPUT STD_OUT       { gen_output(&vmcodep, 1);			}
+     | OUTPUT STD_ERR	    { gen_output(&vmcodep, 2);			}
+     | OUTPUT FILE_THIS	    { gen_output(&vmcodep, 3);			}
+     | OUTPUT STD_IN	    { gen_output(&vmcodep, 0);			}
+     | INPUT STD_OUT        { gen_input(&vmcodep, 1);			}
+     | INPUT STD_ERR	    { gen_input(&vmcodep, 2);			}
+     | INPUT FILE_THIS	    { gen_input(&vmcodep, 3);			}
+     | INPUT STD_IN	    { gen_input(&vmcodep, 0);			}
+     | OUTPUT filehandle   { gen_output_handle(&vmcodep);		}
+     | INPUT  filehandle   { gen_input_handle(&vmcodep); 		}
      | txpr		    { gen_drop(&vmcodep);			}
      |
      ;
+
+filehandle : FILE_HANDLE	{ 
+	   			  FILE* handle = NULL;
+	   			  if ((handle = 
+				  get_handle($<handle>1.name) == NULL)) {
+					handle =
+					  fopen($<handle>1.name,
+						  	$<handle>1.mode);
+					insert_handle($<handle>1.name, 
+							handle);
+					gen_litfile(handle);
+				  } else
+				         gen_litfile(handle);
+			 					      }
 
 dopart : DO { gen_branch(&vmcodep, 0); $<instp>$ = vmcodep;
        		vm_target2Cell(vmcodep, $<instp>0[-1]); 	        }
@@ -187,10 +216,9 @@ elsepart : ELSE { gen_branch(&vmcodep, 0); $<instp>$ = vmcodep;
 	 ;
 
 
-string : '"' STR_DQ_TXT '"' 		 { gen_litstr($<sval>2); }
-       | SQ STR_SQ_TXT SQ		 { gen_litstr($<sval>2); }
-       | TRIPLE_SQ STR_TSQ_TXT TRIPLE_SQ { gen_litstr($<sval>2); }
-       | TRIPLE_DQ STR_TDQ_TXT TRIPLE_DQ { gen_litstr($<sval>2);	}
+string : SQ SQ_TXT SQ 		 { gen_litstr($<sval>2); }
+       | DQ DQ_TXT DQ		 { gen_litstr($<sval>2); }
+       | TBT TBT_TXT TBT	 { gen_litstr($<sval>2); }
        ;
 
 txpr : term '+' term     { gen_add(&vmcodep);     }
@@ -220,15 +248,9 @@ txpr : term '+' term     { gen_add(&vmcodep);     }
      | string '+' string { gen_strcat(&vmcodep);  }
      | '!' term          { gen_not(&vmcodep);     }
      | '-' term          { gen_neg(&vmcodep);     }
-     | OPENFILE term
-     	  FOR	term     { gen_openfile(&vmcodep);  }
-     | WRITEFILE term 
-     	  FROM	 term    { gen_writefile(&vmcodep); }
-     | READFILE term
-          INTO  term	 { gen_readfile(&vmcodep);  }
-     | CLOSEFILE term	 { gen_closefile(&vmcodep); }
      | term
      ;
+
 
 fterm : FLOATNUM			{ gen_litflt(&vmcodep,
      				          	$<fval>1);          }
