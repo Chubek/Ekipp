@@ -10,6 +10,7 @@ a.awk
 yy.tab.h
 packed.i
 config.h
+*.i
 *.a
 *.so
 *.la
