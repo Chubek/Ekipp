@@ -32,6 +32,8 @@ uint8_t comment_left_token[TOK_MAX + 1]  = {0};
 uint8_t comment_right_token[TOK_MAX + 1] = {0};
 uint8_t delim_left_token[TOK_MAX + 1]    = {0};
 uint8_t delim_right_token[TOK_MAX + 1]   = {0};
+uint8_t template_delim_left_token[TOK_MAX + 1]  = {0};
+uint8_t template_delim_right_token[TOK_MAX + 1] = {0};
 
 #include "ekipp.h"
 #include "yy.tab.h"
@@ -41,6 +43,7 @@ Decimal		[0-9]+
 Hexal		[0xX][a-fA-F0-9]+
 Octal		[0oO][0-7]+
 Binary		[0bB][0-1]+
+Float		[0-9]*[eE\.][-+][0-9]+
 Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 
 %x ESC
@@ -50,11 +53,15 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 %x INB
 %x EVALS
 %x CALL
+%x TMPL
 %x PTH
 %x DEFN
 %x COMM
 %x DEFNN
 %x ENCLOSE
+%x SQ_STR
+%x DQ_STR
+%x TBT_STR
 %s DIV1
 %s DIV2
 %%
@@ -62,7 +69,7 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 	if (!u8_strncmp(&engage_prefix_token[0], &yytext[0], 2)) {
 		BEGIN(ENG); return ENGAGE_PREFIX;
 	}
-	else if (!u8_strncmp(&define_prefix_token[0], &yytext[0], 2)) {
+	else if (!u8_strncmp(&define_prefix_token[0], &yytext[0], 2)) {
 		BEGIN(DEFN); return DEF_PREFIX;
 	}
 	else if (!u8_strncmp(&call_prefix_token[0], &yytext[0], 2)) {
@@ -88,7 +95,14 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
         }
         else if (!u8_strncmp(&delim_right_token[0], &yytext[0], 2)) {
                 BEGIN(INITIAL); return DRIGHT;
-        } else
+        } 
+	else if (!u8_strncmp(&template_delim_left[0], &yytext[0], 2)) {
+		BEGIN(TMPL); return TEMPLATE_DELIM_LEFT;
+	} 
+	else if (!u8_strncmp(&template_delim_right[0], &yytext[0], 2)) {
+		BEGIN(INITIAL); return TEMPLATE_DELIM_RIGHT;
+	}
+	else
 		ECHO;
 
 }
@@ -111,7 +125,7 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 <DEFN>define	     return DEFINE;
 <DEFN>defeval	     return DEFEVAL;
 <DEFN>exchange	     return EXCHANGE;
-<DEFN,CALL>{Ident}     { yylval.sval = gc_strdup(&yytext[0]);
+<DEFN,CALL,TMPL>{Ident}     { yylval.sval = gc_strdup(&yytext[0]);
 				  return IDENT;		}
 <DEFN>"=>"	     return CHEVRON;
 <DEFN>"<>"	     return XCHN_MARK;
@@ -147,14 +161,16 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 				return ARG_STR;         }
 
 
-<EVALS>{Decimal}	 { yylval.ival = strtoll(yytext, NULL, 10); 
-				return NUM;    }
-<EVALS>{Hexal}	 { yylval.ival = strtoll(&yytext[2], NULL, 16); 
-				return NUM;    }
-<EVALS>{Octal}	 { yylval.ival = strtoll(&yytext[2], NULL, 8); 
-				return NUM;    }
-<EVALS>{Binary}	 { yylval.ival = strtoll(&yytext[2], NULL, 2); 
-				return NUM;    }
+<EVALS,TMPL>{Decimal}	 { yylval.ival = strtoll(yytext, NULL, 10); 
+				return NUM;      }
+<EVALS,TMPL>{Hexal}	 { yylval.ival = strtoll(&yytext[2], NULL, 16); 
+				return NUM;      }
+<EVALS,TMPL>{Octal}	 { yylval.ival = strtoll(&yytext[2], NULL, 8); 
+				return NUM;      }
+<EVALS,TMPL>{Binary}	 { yylval.ival = strtoll(&yytext[2], NULL, 2); 
+				return NUM;      }
+<TMPL>{Float}		 { yylval.fval = strtold(&yytext[0], NULL); 
+				return FLOATNUM; }
 <DIV1>[\-]?[0-9] { yylval.ival = atoi(&yytext[0]); 
 				return DIVNUM; }
 <ENG>[0-9]+	 { yylval.ival = atoi(&yytext[0]);
@@ -198,15 +214,68 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 
 <ENG>include	return INCLUDE;
 
-<EVALS>>=	return GE;
-<EVALS>\<=	return LE;
-<EVALS>==	return EQ;
-<EVALS>!=	return NE;
-<EVALS>>>	return SHR;
-<EVALS>\<<	return SHL;
-<EVALS>\*\*	return POW;
-<EVALS>\+\+	return INCR;
-<EVALS>\-\-	return DECR;
+<TMPL>[']      { BEGIN(SQ_STR);	return SQ;  }
+<TMPL>["]      { BEGIN(DQ_STR); return DQ;  }
+<TMPL>"```"    { BEGIN(TBT_STR); return TBT; }
+<SQ_STR>[^']+  { yylval.sval = gc_strdup(&yytext[0]); return SQ_TXT;   }
+<DQ_STR>[^"]+  { yylval.sval = gc_strdup(&yytext[0]); return DQ_TXT;   }
+<TBT_STR>[^`]  { yylval.sval = gc_strdup(&yytext[0]); return TBT_TXT;  }
+<SQ_STR>[^\\]/[']   { BEGIN(TMPL); return SQ;  }
+<DQ_STR>[^\\]/["]   { BEGIN(TMPL); return DQ;  }
+<SQ_STR>[^\\]/"```" { BEGIN(TMPL); return TBT; }
+
+<TMPL>[;:,()=]  return *yytext;
+<TMPL>:=	return INIT_ASSIGN;
+<TMPL>for	return FOR;
+<TMPL>while	return WHILE;
+<TMPL>if	return IF;
+<TMPL>then	return THEN;
+<TMPL>do	return DO;
+<TMPL>end	return END;
+<TMPL>>>>	return OUTPUT;
+<TMPL><<<	return INPUT;
+
+<TMPL>openfile  return OPENFILE;
+<TMPL>readfile  return READFILE;
+<TMPL>writefile return WRITEFILE;
+<TMPL>closefile return CLOSEFILE;
+
+<TMPL>std::in	   return STD_IN;
+<TMPL>std::out     return STD_OUT;
+<TMPL>std::err     return STD_ERR;
+<TMPL>file::this   return THIS_FILE;
+
+<TMPL>"file::read::"/[0-9a-zA-Z_/\-\.]{1,255} {
+			  yylval.handle.name = gc_strdup(&yytext[12]);
+			  yylval.handle.mode = gc_strdup("r");
+			  return FILE_HANDLE;
+			}
+<TMPL>"file::write::"/[0-9a-zA-Z_/\-\.]{1,255} {
+			  yylval.handle.name = gc_strdup(&yytext[13]);
+			  yylval.handle.mode = gc_strdup("w");
+			  return FILE_HANDLE;
+			}
+<TMPL>"file::append::"/[0-9a-zA-Z_/\-\.]{1,255} {
+			  yylval.handle.name = gc_strdup(&yytext[14]);
+			  yylval.handle.mode = gc_strdup("a");
+			  return FILE_HANDLE;
+			}
+<TMPL>"file::readwrite::"/[0-9a-zA-Z_/\-\.]{1,255} {
+			  yylval.handle.name = gc_strdup(&yytext[17]);
+			  yylval.handle.mode = gc_strdup("r+");
+			  return FILE_HANDLE;
+			}
+
+
+<EVALS,TMPL>>=	 return GE;
+<EVALS,TMPL>\<=	 return LE;
+<EVALS,TMPL>==	 return EQ;
+<EVALS,TMPL>!=	 return NE;
+<EVALS,TMPL>>>	 return SHR;
+<EVALS,TMPL>\<<	 return SHL;
+<EVALS,TMPL>\*\* return POW;
+<EVALS,TMPL>\+\+ return INCR;
+<EVALS,TMPL>\-\- return DECR;
 
 <INITIAL,ENG>[/]  { BEGIN(REG); }
 
