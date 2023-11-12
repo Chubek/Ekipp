@@ -18,11 +18,31 @@ void genarg_target(Inst **vmcodepp, Inst *target)
   (*vmcodepp)++;
 }
 
+void genarg_str(Inst **vmcodepp, unsigned char* str)
+{
+  vm_str2Cell(ptr, *((Cell *) *vmcodepp));
+  (*vmcodepp)++;
+}
+
 void genarg_ptr(Inst **vmcodepp, void* ptr)
 {
   vm_ptr2Cell(ptr, *((Cell *) *vmcodepp));
   (*vmcodepp)++;
 }
+
+void genarg_f(Inst **vmcodepp, long double f)
+{
+  vm_f2Cell(ptr, *((Cell *) *vmcodepp));
+  (*vmcodepp)++;
+}
+
+void genarg_file(Inst **vmcodepp, FILE* ptr)
+{
+  vm_file2Cell(ptr, *((Cell *) *vmcodepp));
+  (*vmcodepp)++;
+}
+
+
 
 void printarg_i(long i)
 {
@@ -128,6 +148,41 @@ vartab *lookup_var(char *name)
 long var_offset(char *name)
 {
   return (locals - lookup_var(name)->index + 2)*sizeof(Cell);
+}
+
+typedef struct handletab {
+  struct handletab *next;
+  char *name;
+  FILE *handle;
+  int index;
+} handletab;
+
+handletab* htab;
+
+void insert_handle(char *name, FILE *handle)
+{
+  handletab *node = malloc(sizeof(handletab));
+
+  locals++;
+  node->next		= htab;
+  node->name		= name;
+  node->handle  	= handle;
+  htab 			= node;
+}
+
+handletab *lookup_handle(char *name)
+{
+  vartab *p;
+
+  for (p = vtab; p != NULL; p = p->next)
+    if (!strcmp(p->name, name))
+      return p;
+  fprintf(stderr, "undefined handle %s", name);
+  exit(1);
+}
+
+FILE* get_handle(char *name) {
+  return lookup_handle(name)->handle;
 }
 
 #define CODE_SIZE 65536
