@@ -55,6 +55,12 @@ int   vm_debug;
 %token GE LE EQ NE SHR SHL POW DIV AND OR INCR DECR IFEX CHEVRON XCHN_MARK
 %token DIVNUM NUM FLOATNUM
 %token DEFEVAL DEFINE EXCHANGE
+%token FUNC RETURN VAR TYPE ELSE IF DO WHILE FOR END THEN
+%token INIT_ASSIGN OUTPUT
+%token OPENFILE READFILE WRITEFILE CLOSEFILE
+%token STR_DQ_TXT STR_SQ_TXT
+%token TRIPLE_SQ TRIPLE_DQ SQ
+
 
 %left    '*' '/' '%' POW
 %left    '%' GT GE LT LE
@@ -156,7 +162,7 @@ stat : IF txpr THEN   { gen_zbranch(&vmcodep, 0); $<instp>$ = vmcodep; }
      | FOR '(' VAR IDENT ';' { insert_local($<sval>3, VAR_INT);		}
      		txpr ';'     { gen_zbranch(&vmcodep, 0);
 			        $<instp>$ = vmcodep;			}
-		commstats ')'     { $<instp>$ = $<instp>8;		}
+		commastats ')'     { $<instp>$ = $<instp>8;		}
 	dopart END FOR	      { BB_BOUNDARY; vm_target2Cell(vmcodep,
 						$<instp>10[-1]);	}
      | IDENT '=' txpr       { gen_storelocal(&vmcodep, 
@@ -222,7 +228,6 @@ txpr : term '+' term     { gen_add(&vmcodep);     }
           INTO  term	 { gen_readfile(&vmcodep);  }
      | CLOSEFILE term	 { gen_closefile(&vmcodep); }
      | term
-     | fterm
      ;
 
 fterm : FLOATNUM			{ gen_litflt(&vmcodep,
