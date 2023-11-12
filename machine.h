@@ -1,3 +1,6 @@
+#ifndef MACHINE_H_
+#define MACHINE_H_
+
 #include <stdio.h>
 
 #ifdef __GNUC__
@@ -60,7 +63,7 @@ void vm_count_block(Inst *ip);
 struct block_count *block_insert(Inst *ip);
 void vm_print_profile(FILE *file);
 
-/* mini type-specific support functions */
+/* ekipp type-specific support functions */
 void genarg_i(Inst **vmcodepp, long i);
 void genarg_ptr(Inst **vmcodepp, void* ptr);
 void printarg_i(long i);
@@ -77,7 +80,8 @@ long engine_debug(Inst *ip0, Cell *sp, char *fp);
 /* other generic functions */
 int yyparse(void);
 
-/* mini-specific functions */
+/* ekipp-specific functions */
+void resolve_namespace(uint8_t* path);
 void  insert_func(char *name, Inst *start, int locals, int nonparams);
 Inst* func_addr(char *name);
 long  func_calladjust(char *name);
@@ -94,3 +98,4 @@ void gen_main_end(void);
 #define VAR_STR		2
 #define VAR_FLOAT	3
 
+#endif
