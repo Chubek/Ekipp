@@ -62,6 +62,7 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 %x SQ_STR
 %x DQ_STR
 %x TBT_STR
+%x TYY
 %s DIV1
 %s DIV2
 %%
@@ -224,7 +225,7 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 <DQ_STR>[^\\]/["]   { BEGIN(TMPL); return DQ;  }
 <SQ_STR>[^\\]/"```" { BEGIN(TMPL); return TBT; }
 
-<TMPL>[;:,()=]  return *yytext;
+<TMPL>[;,()=]  return *yytext;
 <TMPL>:=	return INIT_ASSIGN;
 <TMPL>for	return FOR;
 <TMPL>while	return WHILE;
@@ -234,6 +235,11 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 <TMPL>end	return END;
 <TMPL>>>>	return OUTPUT;
 <TMPL><<<	return INPUT;
+
+<TMPL>[:]	{ BEGIN(TYY);  return *yytext;		}
+<TYY>int	{ BEGIN(TMPL); yylval.tval = VAR_INT;	}
+<TYY>str	{ BEGIN(TMPL); yylval.tval = VAR_STR;	}
+<TYY>float	{ BEGIN(TMPL); yylval.tval = VAR_FLOAT;	}
 
 <TMPL>openfile  return OPENFILE;
 <TMPL>readfile  return READFILE;
