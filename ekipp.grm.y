@@ -39,6 +39,9 @@ extern  uint8_t*  YYCURSOR;
 
 uint8_t* yydefeval(uint8_t* code);
 
+long nonparams  = 0;
+long locals	= 0;
+
 Label *vm_prim;
 Inst  *vmcodep;
 FILE  *vm_out;
@@ -125,7 +128,7 @@ program : program function
 	|
 	;
 
-function : FUNC IDENT { locals = 0; nonparams = 0; } '(' params ')'
+function : FUNC IDENT   { locals = 0; nonparams = 0; } '(' params ')'
 	 vars		{ insert_func($<sval>2, vmcodep, 
 	 			locals, nonparams);	}
 	 stats RETURN expr ';'
@@ -181,8 +184,8 @@ stat : IF txpr THEN   { gen_zbranch(&vmcodep, 0); $<instp>$ = vmcodep; }
      | INPUT STD_ERR	    { gen_input(&vmcodep, 2);			}
      | INPUT FILE_THIS	    { gen_input(&vmcodep, 3);			}
      | INPUT STD_IN	    { gen_input(&vmcodep, 0);			}
-     | OUTPUT filehandle   { gen_output_handle(&vmcodep);		}
-     | INPUT  filehandle   { gen_input_handle(&vmcodep); 		}
+     | OUTPUT filehandle    { gen_output_handle(&vmcodep);		}
+     | INPUT  filehandle    { gen_input_handle(&vmcodep); 		}
      | txpr		    { gen_drop(&vmcodep);			}
      |
      ;
