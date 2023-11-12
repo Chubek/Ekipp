@@ -36,6 +36,7 @@ uint8_t template_delim_left_token[TOK_MAX + 1]  = {0};
 uint8_t template_delim_right_token[TOK_MAX + 1] = {0};
 
 #include "ekipp.h"
+#include "machine.h"
 #include "yy.tab.h"
 %}
 
