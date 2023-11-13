@@ -65,6 +65,7 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 %x DQ_STR
 %x TBT_STR
 %x TYY
+%x CHNG
 %x IMP
 %s DIV1
 %s DIV2
@@ -73,7 +74,7 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 	if (!u8_strncmp(&engage_prefix_token[0], &yytext[0], 2)) {
 		BEGIN(ENG); return ENGAGE_PREFIX;
 	}
-	else if (!u8_strncmp(&define_prefix_token[0], &yytext[0], 2)) {
+	else if (!u8_strncmp(&define_prefix_token[0], &yytext[0], 2)) {
 		BEGIN(DEFN); return DEF_PREFIX;
 	}
 	else if (!u8_strncmp(&call_prefix_token[0], &yytext[0], 2)) {
@@ -100,10 +101,10 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
         else if (!u8_strncmp(&delim_right_token[0], &yytext[0], 2)) {
                 BEGIN(INITIAL); return DRIGHT;
         } 
-	else if (!u8_strncmp(&template_delim_left[0], &yytext[0], 2)) {
+	else if (!u8_strncmp(&template_delim_left_token[0], &yytext[0], 2)) {
 		BEGIN(TMPL); return TEMPLATE_DELIM_LEFT;
 	} 
-	else if (!u8_strncmp(&template_delim_right[0], &yytext[0], 2)) {
+	else if (!u8_strncmp(&template_delim_right_token[0], &yytext[0], 2)) {
 		BEGIN(INITIAL); return TEMPLATE_DELIM_RIGHT;
 	}
 	else
@@ -124,6 +125,8 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 <DIV1>[$]	       return *yytext;
 <DIV1>[\n]           { BEGIN(DIV2);    return *yytext; }
 <ENG,EVALS,DEFN>[\n]+   { BEGIN(INITIAL); return *yytext;   }
+
+<TMPL>[\n\r]	REJECT;
 
 <DEFN,CALL>[\r\n]	     REJECT;
 <DEFN>define	     return DEFINE;
@@ -191,8 +194,11 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 				BEGIN(TMPL);
 				return NAMESPACE;	  }
 
-
-<ENG>"change-token" 		return CHANGETOKEN;
+<CHNG>[#!@%&<>{}:]{2}		{ strncpy(&yylval.chngval[0], 
+					&yytext[0], 2);
+					BEGIN(INITIAL);
+					return CHNGVAL;		}
+<ENG>"change-token" 		{ BEGIN(CHNG); return CHANGETOKEN; }
 <ENG>"engage-prefix" 		return ENGAGEPREFIX;
 <ENG>"define-prefix" 		return DEFPREFIX;
 <ENG>"call-prefix"   		return CALLPREFIX;
@@ -266,11 +272,6 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 <TYY>int	{ BEGIN(TMPL); yylval.tval = VAR_INT;	}
 <TYY>str	{ BEGIN(TMPL); yylval.tval = VAR_STR;	}
 <TYY>float	{ BEGIN(TMPL); yylval.tval = VAR_FLOAT;	}
-
-<TMPL>openfile  return OPENFILE;
-<TMPL>readfile  return READFILE;
-<TMPL>writefile return WRITEFILE;
-<TMPL>closefile return CLOSEFILE;
 
 <TMPL>std::in	   return STD_IN;
 <TMPL>std::out     return STD_OUT;

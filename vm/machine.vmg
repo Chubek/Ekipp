@@ -28,7 +28,7 @@ i = i1%i2;
 pow ( i1 i2 -- i )
 i = powl((long double)i1, (long double)i2);
 
-fadd ( i1 f2 -- f )
+fadd ( f1 f2 -- f )
 f = f1+f2;
 
 fsub ( f1 f2 -- f )
@@ -89,9 +89,13 @@ neg ( i1 -- i2 )
 i2 = -i1;
 
 litnum ( #i -- i )
+
 litptr ( #ptr -- ptr )
+
 litflt ( #f -- f )
+
 litstr ( #str -- str )
+
 litfile ( #file -- file )
 
 drop ( i -- )
@@ -137,7 +141,7 @@ switch (ifd) {
 		outfile = stderr;
 		break;
 	case 3:
-		inpfile = yyout;
+		outfile = yyout;
 		break;
 	default:
 		break;
@@ -168,7 +172,7 @@ libsym ( ptrhandle aname -- ptrres )
 ptrres = dlsym(ptrhandle, aname);
 
 libclose ( ptrhandle -- )
-dlclose(ptrhndle);
+dlclose(ptrhandle);
 
 branch ( #target -- )
 SET_IP(target);
@@ -198,10 +202,10 @@ vm_Cell2str(*(Cell *)(fp+ioffset),str);
 storelocalstr ( #ioffset str -- )
 vm_str2Cell(str,*(Cell *)(fp+ioffset));
 
-loadlocalptr ( #ioffset -- str )
+loadlocalptr ( #ioffset -- ptr )
 vm_Cell2ptr(*(Cell *)(fp+ioffset),ptr);
 
-storelocalptr ( #ioffset str -- )
+storelocalptr ( #ioffset ptr -- )
 vm_ptr2Cell(ptr,*(Cell *)(fp+ioffset));
 
 loadlocalnum ( #ioffset -- i )
@@ -226,4 +230,4 @@ end ( ptr -- )
 #ifdef VM_PROFILING
 block_insert(IP);
 #endif
-return ptr;
+return (long int)ptr;

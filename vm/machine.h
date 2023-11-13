@@ -2,6 +2,14 @@
 #define MACHINE_H_
 
 #include <stdio.h>
+#include <stdint.h>
+#include <dlfcn.h>
+#include <math.h>
+
+#include <gc.h>
+#include <unistr.h>
+
+#include "ekipp.h"
 
 #ifdef __GNUC__
 typedef void *Label; 
@@ -66,11 +74,18 @@ void vm_print_profile(FILE *file);
 /* ekipp type-specific support functions */
 void genarg_i(Inst **vmcodepp, long i);
 void genarg_ptr(Inst **vmcodepp, void* ptr);
-void printarg_i(long i);
+void genarg_f(Inst **vmcodepp, long double f);
+void genarg_str(Inst **vmcodepp, uint8_t* str);
+void genarg_file(Inst **vmcodepp, FILE* file);
+void genarg_ptr(Inst **vmcodepp, void* ptr);
 void genarg_target(Inst **vmcodepp, Inst *target);
+void printarg_i(long i);
 void printarg_target(Inst *target);
 void printarg_ptr(void *ptr);
 void printarg_a(char *a);
+void printarg_file(FILE* file);
+void printarg_f(long double f);
+void printarg_str(uint8_t* str);
 void printarg_Cell(Cell i);
 
 /* engine functions (type not fixed) */
@@ -85,9 +100,10 @@ void resolve_namespace(uint8_t* path);
 void  insert_func(char *name, Inst *start, int locals, int nonparams);
 Inst* func_addr(char *name);
 long  func_calladjust(char *name);
-void  insert_local(char *name);
+void  insert_local(char *name, int type);
 long  var_offset(char *name);
-void  handle_insert(char* name, FILE* handle);
+int   var_type(char *name);
+void insert_handle(char *name, FILE *handle);
 FILE* get_handle(char* name);
 void gen_main_end(void);
 

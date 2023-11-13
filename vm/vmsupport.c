@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
+
 extern int optind;
 
 #include <assert.h>
@@ -19,7 +21,7 @@ void genarg_target(Inst **vmcodepp, Inst *target) {
 }
 
 void genarg_str(Inst **vmcodepp, unsigned char *str) {
-  vm_str2Cell(ptr, *((Cell *)*vmcodepp));
+  vm_str2Cell(str, *((Cell *)*vmcodepp));
   (*vmcodepp)++;
 }
 
@@ -29,24 +31,24 @@ void genarg_ptr(Inst **vmcodepp, void *ptr) {
 }
 
 void genarg_f(Inst **vmcodepp, long double f) {
-  vm_f2Cell(ptr, *((Cell *)*vmcodepp));
+  vm_f2Cell(f, *((Cell *)*vmcodepp));
   (*vmcodepp)++;
 }
 
-void genarg_file(Inst **vmcodepp, FILE *ptr) {
-  vm_file2Cell(ptr, *((Cell *)*vmcodepp));
+void genarg_file(Inst **vmcodepp, FILE *file) {
+  vm_file2Cell(file, *((Cell *)*vmcodepp));
   (*vmcodepp)++;
 }
 
-void printarg_str(unsigned char s) { fprintf(vm_out, "%s ", s); }
+void printarg_str(unsigned char *s) { fprintf(vm_out, "%s ", s); }
 
 void printarg_file(FILE *file) { fprintf(vm_out, "%p ", file); }
 
-void printarg_ptr(void *ptr) { fprintf(vm_out, "%lp ", ptr); }
+void printarg_ptr(void *ptr) { fprintf(vm_out, "%p ", ptr); }
 
 void printarg_i(long i) { fprintf(vm_out, "%ld ", i); }
 
-void printarg_f(long double f) { fprintf(vm_out, "%lf ", f); }
+void printarg_f(long double f) { fprintf(vm_out, "%Lf ", f); }
 
 void printarg_target(Inst *target) { fprintf(vm_out, "%p ", target); }
 
@@ -170,7 +172,7 @@ void insert_handle(char *name, FILE *handle) {
 }
 
 HandleTable *lookup_handle(char *name) {
-  VarTable *p;
+  HandleTable *p;
 
   for (p = htab; p != NULL; p = p->next)
     if (!strcmp(p->name, name))

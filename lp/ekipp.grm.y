@@ -17,7 +17,10 @@
 
 #include "machine-gen.i"
 
-#define MAX_TOKEN 8
+#define TOK_MAX	2
+
+#define BB_BOUNDARY (last_compiled = NULL,  /* suppress peephole opt */ \
+                     block_insert(vmcodep)) /* for accurate profiling */
 
 extern	 uint8_t* fmt;
 extern   int 	  yylex(void);
@@ -52,8 +55,8 @@ extern uint8_t template_delim_right_token[TOK_MAX + 1];
 
 uint8_t* yydefeval(uint8_t* code);
 
-long nonparams  = 0;
-long locals	= 0;
+int nonparams  = 0;
+int locals	= 0;
 
 Label *vm_prim;
 Inst  *vmcodep;
@@ -71,16 +74,19 @@ int   vm_debug;
 %token GE LE EQ NE SHR SHL POW DIV AND OR INCR DECR IFEX CHEVRON XCHN_MARK
 %token DIVNUM NUM FLOATNUM
 %token DEFEVAL DEFINE EXCHANGE
-%token FUNC RETURN VAR TYPE ELSE IF DO WHILE FOR END THEN
-%token INIT_ASSIGN OUTPUT
-%token OPENFILE READFILE WRITEFILE CLOSEFIL
+%token FUNC RETURN VAR TYPE ELSE IF DO WHILE FOR END THEN INIT_ASSIGN
+%token IMPORT NAMESPACE
 %token SQ DQ TBT SQ_TXT DQ_TXT TBT_TXT
 %token DELIM_TEMPLATE_BEGIN DELIM_TEMPLATE_END
-%token STD_IN STD_OUT STD_ERR FILE_THIS FILE_HANDLE
+%token STD_IN STD_OUT STD_ERR THIS_FILE FILE_HANDLE INPUT OUTPUT
+%token COMMENTLEFT DELIMLEFT TMPLDELIMLEFT QUOTELEFT
+%token COMMENTRIGHT DELIMRIGHT TMPLDELIMRIGHT QUOTERIGHT
+%token ENGAGEPREFIX CALLPREFIX DEFPREFIX CALLSUFFIX CHANGETOKEN CHNGVAL
+%token TEMPLATE_DELIM_LEFT TEMPLATE_DELIM_RIGHT
 
 %left    '*' '/' '%' POW
-%left    '%' GT GE LT LE
-%right    AND OR '&' '|' '^'
+%left     '>' '<' LE GE
+%right    AND OR SHR SHL '&' '|' '^'
 %nonassoc EQ NE
 
 %union {
@@ -88,15 +94,20 @@ int   vm_debug;
 	long double	fval;
 	uint8_t*	sval;
 	int		tval;
+	int		cmpval;
+	char		chngval[2];
 	Inst*		instp;
-	struct {
+	struct Handle {
 		uint8_t* name;
 		uint8_t* mode;
-	}
+	}		handle;
 }
 
 %type <sval> delimited
 %type <ival> expr
+%type <instp> elsepart
+%type <instp> dopart
+%type <sval> quote
 
 
 %start prep
@@ -117,7 +128,7 @@ main : exit
      | date
      | catf
      | incl
-     | dnl
+     | pdnl
      | ifexec
      | ifregex
      | undivert
@@ -130,6 +141,7 @@ main : exit
      | substitute
      | patsub
      | exchange
+     | token
      | template
      | '\n'
      ;
@@ -138,8 +150,8 @@ template : DELIM_TEMPLATE_BEGIN program DELIM_TEMPLATE_END
 	 ;
 
 program : program function
-	|
-	;
+	| import program
+	|;
 
 import : IMPORT NAMESPACE ';' {  resolve_namespace($<sval>2);	}
 
@@ -148,41 +160,44 @@ function : FUNC IDENT   { locals = 0; nonparams = 0; } '(' params ')'
 	 vars		{ insert_func($<sval>2, vmcodep, 
 	 			locals, nonparams);	}
 	 stats RETURN expr ';'
-	 END FUNC ';'	{ gen_return(&vmcodep, -adjust(locals); }
+	 END FUNC ';'	{ gen_return(&vmcodep, -adjust(locals)); }
 	 ;
 
 params : IDENT ':' TYPE ',' { insert_local($<sval>1, 
        				$<tval>3); } params
        | IDENT ':' TYPE	    { insert_local($<sval>1, 
        				$<tval>3); }
-       |
-       ;
+       |;
 
 vars : vars VAR IDENT ':' TYPE ';' { insert_local($<sval>3,
      							$<tval>5);
      					nonparams++;		      }
      | vars IDENT ':' TYPE 
      		INIT_ASSIGN txpr ';' { insert_local($<sval>1, $<tval>3);
-					gen_storelocal(&vmcodep, 
-					  var_offset($<sval>1));	      									 }
-     |
-     ;
+					if ($<tval>3 == VAR_INT)
+					  gen_storelocalnum(&vmcodep,
+					  var_offset($<sval>1));
+					else if ($<tval>3 == VAR_STR)
+					  gen_storelocalnum(&vmcodep, 
+						  var_offset($<sval>1));
+					else if ($<tval>3 == VAR_INT)
+					  gen_storelocalflt(&vmcodep, 
+						  var_offset($<sval>1));									}
+     |;
 
 stats : stats stat ';'
-      |
-      ;
+      |;
 
 commastats : commastats ',' stats
-	   |
-	   ;
+	   |;
 
 
 stat : IF txpr THEN   { gen_zbranch(&vmcodep, 0); $<instp>$ = vmcodep; }
        stats	      { $<instp>$ = $<instp>4; }
        elsepart END IF { BB_BOUNDARY; 
        			 vm_target2Cell(vmcodep, $<instp>7[-1]);	}
-     | WHILE    { BB_BOUNDARY; $<instp>$ = vmcodep;	} 
-       txpr DO  { gen_zbranch(&vmcodep, 0); $<instp>$ = vmcodep;  	}
+     | WHILE           { BB_BOUNDARY; $<instp>$ = vmcodep;		} 
+       txpr DO         { gen_zbranch(&vmcodep, 0); $<instp>$ = vmcodep; }
        stats END WHILE { gen_branch(&vmcodep, $<instp>2);
        			vm_target2Cell(vmcodep, $<instp>5[-1]);		}
      | FOR '(' VAR IDENT ';' { insert_local($<sval>3, VAR_INT);		}
@@ -191,54 +206,70 @@ stat : IF txpr THEN   { gen_zbranch(&vmcodep, 0); $<instp>$ = vmcodep; }
 		commastats ')'     { $<instp>$ = $<instp>8;		}
 	dopart END FOR	      { BB_BOUNDARY; vm_target2Cell(vmcodep,
 						$<instp>10[-1]);	}
-     | IDENT '=' txpr       { gen_storelocal(&vmcodep, 
-     					var_offset($<sval>1));		}
-     | OUTPUT STD_OUT       { gen_output(&vmcodep, 1);			}
-     | OUTPUT STD_ERR	    { gen_output(&vmcodep, 2);			}
-     | OUTPUT FILE_THIS	    { gen_output(&vmcodep, 3);			}
-     | OUTPUT STD_IN	    { gen_output(&vmcodep, 0);			}
-     | INPUT STD_OUT        { gen_input(&vmcodep, 1);			}
-     | INPUT STD_ERR	    { gen_input(&vmcodep, 2);			}
-     | INPUT FILE_THIS	    { gen_input(&vmcodep, 3);			}
-     | INPUT STD_IN	    { gen_input(&vmcodep, 0);			}
-     | OUTPUT filehandle    { gen_output_handle(&vmcodep);		}
-     | INPUT  filehandle    { gen_input_handle(&vmcodep); 		}
+     | IDENT '=' txpr       { if (var_type($<sval>1) == VAR_INT)
+     				gen_storelocalnum(&vmcodep, 
+     					var_offset($<sval>1));	
+			      else if (var_type($<sval>1) == VAR_STR)
+			      	gen_storelocalstr(&vmcodep,
+					var_offset($<sval>1));
+			      else if (var_type($<sval>1) == VAR_FLOAT)
+			      	gen_storelocalflt(&vmcodep,
+					var_offset($<sval>1));		}
+     | OUTPUT STD_OUT
+     	'$' txpr      	    { gen_output(&vmcodep, 1);			}
+     | OUTPUT STD_ERR	   
+     	'$' txpr	    { gen_output(&vmcodep, 2);			}
+     
+     | OUTPUT THIS_FILE	
+     	'$' txpr	    { gen_output(&vmcodep, 3);			}
+     | OUTPUT STD_IN
+     	'$' txpr	    { gen_output(&vmcodep, 0);			}
+     | INPUT STD_OUT        
+     	'$' IDENT	    { gen_input(&vmcodep, 1);			}
+     	
+     | INPUT STD_ERR
+     	'$' IDENT	    { gen_input(&vmcodep, 2);			}
+     | INPUT THIS_FILE	   
+        '$' IDENT	    { gen_input(&vmcodep, 3);			}
+     | INPUT STD_IN	
+     	'$' IDENT	    { gen_input(&vmcodep, 0);			}
+     | OUTPUT filehandle 
+     	'$' txpr	    { gen_output_handle(&vmcodep);		}
+     | INPUT  filehandle
+     	'$' IDENT	    { gen_input_handle(&vmcodep); 		}
      | txpr		    { gen_drop(&vmcodep);			}
-     |
-     ;
+     |;
 
 filehandle : FILE_HANDLE	{ 
 	   			  FILE* handle = NULL;
 	   			  if ((handle = 
 				  get_handle($<handle>1.name) == NULL)) {
-					handle =
-					  fopen($<handle>1.name,
+					handle = fopen($<handle>1.name,
 						  	$<handle>1.mode);
 					insert_handle($<handle>1.name, 
 							handle);
-					gen_litfile(handle);
+					gen_litfile(&vmcodep, handle);
 				  } else
-				         gen_litfile(handle);
+				         gen_litfile(&vmcodep, handle);
 			 					      }
 
 dopart : DO { gen_branch(&vmcodep, 0); $<instp>$ = vmcodep;
        		vm_target2Cell(vmcodep, $<instp>0[-1]); 	        }
 	  stats { $$ = $<instp>2;	}
-       | { $$ = <instp>0;		}
+       | { $$ = $<instp>0;		}
        ;
           
 
 elsepart : ELSE { gen_branch(&vmcodep, 0); $<instp>$ = vmcodep;
      	    vm_target2Cell(vmcodep, $<instp>0[-1]); }
             stats { $$ = $<instp>2; }
-	 |  { $$ = <instp>0;	}
-	 |
+	 |  { $$ = $<instp>0;	}
 	 ;
 
 
-string : SQ SQ_TXT SQ 		 { gen_litstr($<sval>2); }
-       | DQ DQ_TXT DQ		 { gen_litstr($<sval>2); }
-       | TBT TBT_TXT TBT	 { gen_litstr($<sval>2); }
+string : SQ SQ_TXT SQ 		 { gen_litstr(&vmcodep, $<sval>2); }
+       | DQ DQ_TXT DQ		 { gen_litstr(&vmcodep, $<sval>2); }
+       | TBT TBT_TXT TBT	 { gen_litstr(&vmcodep, $<sval>2); }
        ;
 
 txpr : term '+' term     { gen_add(&vmcodep);     }
@@ -272,8 +303,7 @@ txpr : term '+' term     { gen_add(&vmcodep);     }
      ;
 
 scat : scat string '+' string           { gen_strcat(&vmcodep);  }
-     | 
-     ;
+     |;
 
 fterm : FLOATNUM			{ gen_litflt(&vmcodep,
      				          	$<fval>1);          }
@@ -283,8 +313,17 @@ term : '(' txpr ')'
      | IDENT '(' targ ')'	{ gen_call(&vmcodep, 
      					func_addr($<sval>1),
 					func_calladjust($<sval>1)); }
-     | IDENT			{ gen_loadlocal(&vmcodep, 
-     					var_offset($<sval>1));	    }
+     | IDENT			{ int type = var_type($<sval>1);
+				  if (type == VAR_INT)
+					gen_loadlocalnum(&vmcodep, 
+     						var_offset($<sval>1));	  
+				  else if (type == VAR_STR)
+				  	gen_loadlocalstr(&vmcodep,
+						var_offset($<sval>1));
+				  else if (type == VAR_FLOAT)
+				  	gen_loadlocalflt(&vmcodep,
+						var_offset($<sval>1));
+								    }
      | NUM			{ gen_litnum(&vmcodep, $<ival>1);   }
      | string
      | fterm
@@ -360,49 +399,51 @@ arguments : ARG_NUM			{ invoke_addarg($<sval>1); }
 
 token : ENGAGE_PREFIX
      	CHANGETOKEN 
-	  '$' ENGAGEPREFIX QUOTED { strncat(&engage_prefix_token[0],
+	  '$' ENGAGEPREFIX CHNGVAL { strcpy(&engage_prefix_token[0],
 						$<sval>5);		}
       | ENGAGE_PREFIX 
         CHANGETOKEN 
-          '$' DEFPREFIX QUOTED { strncat(&define_prefix_token[0],
+          '$' DEFPREFIX CHNGVAL { strcpy(&define_prefix_token[0],
                                                 $<sval>5);              }
       | ENGAGE_PREFIX 
         CHANGETOKEN 
-          '$' CALLPREFIX QUOTED { strncat(&call_prefix_token[0],
+          '$' CALLPREFIX CHNGVAL { strcpy(&call_prefix_token[0],
                                                 $<sval>5);              }
       | ENGAGE_PREFIX 
         CHANGETOKEN 
-          '$' CALLSUFFIX QUOTED { strncat(&call_suffix_token[0],
+          '$' CALLSUFFIX CHNGVAL { strcpy(&call_suffix_token[0],
                                                 $<sval>5);              }
       | ENGAGE_PREFIX 
         CHANGETOKEN 
-          '$' QUOTELEFT QUOTED { strncat(&quote_left_token[0],
+          '$' QUOTELEFT CHNGVAL { strcpy(&quote_left_token[0],
                                                 $<sval>5);              }
       | ENGAGE_PREFIX                   
         CHANGETOKEN   
-          '$' QUOTERIGHT QUOTED { strncat(&quote_right_token[0],    
+          '$' QUOTERIGHT CHNGVAL { strcpy(&quote_right_token[0],    
                                                 $<sval>5);              }
       | ENGAGE_PREFIX                   
         CHANGETOKEN   
-          '$' DELIMLEFT QUOTED { strncat(&delim_left_token[0],    
-                                                $<sval>5);              }
+          '$' DELIMLEFT CHNGVAL { strcpy(&delim_left_token[0],    
+                                                $<sval>4);              }
       | ENGAGE_PREFIX                   
         CHANGETOKEN   
-          '$' DELIMRIGHT QUOTED { strncat(&delim_right_token[0],    
-                                                $<sval>5);              }
+          '$' DELIMRIGHT CHNGVAL { strcpy(&delim_right_token[0],    
+                                                $<sval>4);              }
       | ENGAGE_PREFIX                   
         CHANGETOKEN   
-          '$' COMMENTLEFT QUOTED { strncat(&comment_left_token[0],    
-                                                $<sval>5);              }
+          '$' COMMENTLEFT CHNGVAL { strcpy(&comment_left_token[0],    
+                                                $<sval>4);              }
       | ENGAGE_PREFIX                   
         CHANGETOKEN   
-          '$' COMMENTRIGHT QUOTED { strncat(&comment_right_token[0],
+          '$' COMMENTRIGHT CHNGVAL { strcpy(&comment_right_token[0],
                                                 $<sval>5);              }
       | ENGAGE_PREFIX
-          '$' TMPLDELIMLEFT QUOTED { strncat(&template_delim_left[0],
+ 	CHANGETOKEN
+ 	 '$' TMPLDELIMLEFT CHNGVAL { strcpy(&template_delim_left_token[0],
 	   					$<sval>5);		}
       | ENGAGE_PREFIX 
-          '$' TMPLDELIMRIGHT QUOTED { strncat(&template_delim_right[0],
+ 	CHANGETOKEN
+         '$' TMPLDELIMRIGHT CHNGVAL { strcpy(&template_delim_right_token[0],
                                                 $<sval>5);              }
       ;
 
@@ -452,7 +493,7 @@ incl : ENGAGE_PREFIX
 	FILEPATH '\n'          { include_file($<sval>4);       }
      ;
 
-dnl : ENGAGE_PREFIX
+pdnl : ENGAGE_PREFIX
      	DNL '\n'	       { dnl();			       } 
      ;
 
@@ -460,15 +501,17 @@ patsub : ENGAGE_PREFIX
        PATSUB '$'
        quote '?'
        quote ':'
-       quote '\n'	      { patsubub($<sval>4, 
+       quote '\n'	      { patsub($<sval>4, 
        					$<sval>6, $<sval>8);   }
+       ;
 
 substitute : ENGAGE_PREFIX
        SUBSTITUTE '$'
        quote '?'
        quote ':'
-       quote '\n'	      { substitutet($<sval>4, 
+       quote '\n'	      { substitute($<sval>4, 
        					$<sval>6, $<sval>8);   }
+           ;
 
 ifexec : ENGAGE_PREFIX
      	quote IFEX quote 

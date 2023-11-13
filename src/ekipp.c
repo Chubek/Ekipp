@@ -10,6 +10,7 @@
 #include <stddef.h>
 #include <inttypes.h>
 #include <time.h>
+#include <sysexits.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -21,9 +22,8 @@
 #include <gc.h>
 
 #include "ekipp.h"
-#include "errors.gen"
 
-#define EEXIT(e, c) do { fputs(e, stderr); exit(c);  } while (0)
+#define EEXIT(e, c) do { fputs(e, stderr); fputc('\n', stderr); exit(c);  } while (0)
 
 static struct LinkedList {
 	struct LinkedList*		next;
@@ -151,7 +151,7 @@ void open_null_file(void) {
 					&nullname[0], 
 					S_IWUSR | S_IFREG,
 					null_dev)) < 0) {
-		EEXIT(ERR_OPEN_NULL, ECODE_OPEN_NULL);
+		EEXIT("Error opening NULL divert node", EX_IOERR);
 	}
 	null_divert = fdopen(null_fd, "w");
 }
@@ -167,7 +167,7 @@ void destroy_null_divert(void) {
 
 void set_divert(int n) {
 	if (n >= NUM_DIVERT) {
-		EEXIT(ERR_NUM_DIVERT, ECODE_NUM_DIVERT);
+		EEXIT("Divert digit must be between 0 and 9", EX_USAGE);
 	}
 	else if (n < 0) {
 		if (!null_divert) 
@@ -189,8 +189,7 @@ void unset_divert(int n) {
 	if (n < 0) {
 		destroy_null_divert();
 	} else if (n >= NUM_DIVERT) {
-		EEXIT(ERR_NUM_DIVERT, ECODE_NUM_DIVERT);	
-	} else if (divert_strings[n] != NULL) {
+		EEXIT("Undivert digit must be between 0 and 9", EX_USAGE);	   } else if (divert_strings[n] != NULL) {
 		fwrite(divert_strings[n], divert_lengths[n], 
 				sizeof(uint8_t), yyout);
 		free(divert_strings[n]);
@@ -234,7 +233,7 @@ uint8_t*	reg_nomatchmsg;
 
 void ifelse_regmatch(void) {
 	if (regcomp(&reg_cc, reg_pattern, REG_NOSUB) < 0) {
-		EEXIT(ERR_REG_COMP, ECODE_REG_COMP);
+		EEXIT("Memory error freeing regex", EX_OSERR);
 	}
 
 	regexec(&reg_cc, reg_input, 0, NULL, 0)
@@ -252,7 +251,7 @@ void search_file(FILE* stream) {
 	regoff_t len;
 
 	if (regcomp(&reg_cc, reg_pattern, 0) < 0) {
-		EEXIT(ERR_REG_COMP, ECODE_REG_COMP);
+		EEXIT("Software error compiling regex", EX_SOFTWARE);
 	}
 
 	for (;;) {
@@ -280,7 +279,7 @@ free:
 void open_search_close(char* path) {
 	FILE* stream;
 	if ((stream = fopen(path, "r")) == NULL) {
-		EEXIT(ERR_FILE_OPEN, ECODE_FILE_OPEN);
+		EEXIT("Could not open file for searching", EX_IOERR);
 	}
 	search_file(stream);
 	fclose(stream);
@@ -348,7 +347,7 @@ void exec_command(char* exec_cmd) {
 	FILE* stream = popen(exec_cmd, "r");
 	FLUSH_STDIO();
 	if (!stream) {
-		EEXIT(ERR_EXEC_CMD, ECODE_EXEC_CMD);	
+		EEXIT("Could not execute command and open pipe", EX_UNAVAILABLE);
 	}
 
 	FLUSH_STDIO();
@@ -382,22 +381,22 @@ char*		delim_command;
 void init_delim_stream(uint8_t* text) {
 	memset(&delim_fpath[0], 'X', XNAME_MAX);
 	if (mkstemp(&delim_fpath[0]) < 0) {
-		EEXIT(ERR_DELIM_FPATH, ECODE_DELIM_FPATH);
+		EEXIT("Could not create temporary file for delimexec", EX_IOERR);
 	}
 
 	u8_sprintf(&delim_rpath[0], TMP_FMT, P_tmpdir, &delim_fpath[0]);
 
 	if (!(delim_stream = fopen(&delim_rpath[0], "w"))) {
-		EEXIT(ERR_DELIM_OPEN, ECODE_DELIM_OPEN);
+		EEXIT("Could not open temporary file for delimexec", EX_IOERR);
 	}
 
 	if (fputs(text, delim_stream) < 0) {
-		EEXIT(ERR_DELIM_WRITE, ECODE_DELIM_WRITE);
+		EEXIT("Could not write to delimexec stream", EX_IOERR);
 	}
 
 	delim_hold = stdin;
 	if (dup2(fileno(delim_stream), STDIN_FILENO) < 0) {
-		EEXIT(ERR_DELIM_DUP, ECODE_DELIM_DUP);
+		EEXIT("Could not duplicate delimexec STDIN stream", EX_IOERR);
 	}
 	fclose(delim_stream);
 	delim_hold = stdin;
@@ -546,7 +545,7 @@ void patsub(uint8_t* input, uint8_t* pattern, uint8_t* repl) {
 	u8_strncpy(&subbed[0], &input[0], inplen);
 
 	if (regcomp(re_cc, pattern, 0) < 0) {
-		EEXIT(ERR_REGEX_PATSUB, ECODE_REGEX_PATSUB);
+		EEXIT("Error compiling regex for patsub", EX_SOFTWARE);
 	}
 
 	for (;;) {
@@ -613,7 +612,7 @@ void offset(uint8_t* input, uint8_t* sub) {
 void list_dir(char* dir_path) {
 	DIR* stream = opendir(dir_path);
 	if (!stream) {
-		EEXIT(ERR_NO_DIR, ECODE_NO_DIR);
+		EEXIT("Directory does not exist", EX_USAGE);
 	}
 
 	struct dirent* entry;
@@ -634,11 +633,11 @@ void list_dir(char* dir_path) {
 void cat_file(char* file_path) {
 	FILE*	stream	= fopen(file_path, "r");
 	if (stream == NULL) {
-		EEXIT(ERR_OPEN_FILE, ECODE_OPEN_FILE);
+		EEXIT("File does not exist", EX_USAGE);
 	}
 
 	if (fseek(stream, 0, SEEK_END) < 0) {
-		EEXIT(ERR_CAT_FAIL, ECODE_CAT_FAIL);
+		EEXIT("Concatenating file failed", EX_IOERR);
 	}
 
 	long len = ftell(stream) + 1;
@@ -651,7 +650,7 @@ void cat_file(char* file_path) {
 
 	char* text = GC_MALLOC(len);
 	if (fread(&text[0], len, sizeof(char), stream) < 0) {
-		EEXIT(ERR_CAT_FAIL, ECODE_CAT_FAIL);
+		EEXIT("Reading file failed", EX_IOERR);
 	}
 
 	fputs(text, yyout);
@@ -681,11 +680,11 @@ void format_time(char* tfmt) {
 	t 	= time(NULL);
 	tmp 	= localtime(&t);
 	if (tmp == NULL) {
-		EEXIT(ERR_FORMAT_TIME, ECODE_FORMAT_TIME);
+		EEXIT("Could not get local time", EX_SOFTWARE);
 	}
 
 	if (strftime(&out_time[0], OUT_TIME_MAX, tfmt, tmp) == 0) {
-		EEXIT(ERR_FORMAT_TIME, ECODE_FORMAT_TIME);
+		EEXIT("Could not format local time", EX_SOFTWARE);
 	}
 
 	fputs(&out_time[0], yyout);

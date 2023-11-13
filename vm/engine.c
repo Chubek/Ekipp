@@ -1,4 +1,4 @@
-#include "mini.h"
+#include "machine.h"
 
 #define USE_spTOS 1
 
@@ -12,6 +12,7 @@
 #define NAME(_x) if (vm_debug) {fprintf(vm_out, "%p: %-20s, ", ip-1, _x); fprintf(vm_out,"fp=%p, sp=%p", fp, sp);}
 #else
 #define NAME(_x)
+#endif
 
 #ifndef THREADING_SCHEME
 #define THREADING_SCHEME 5
@@ -127,7 +128,7 @@
 
 #ifndef __GNUC__
 enum {
-#include "mini-labels.i"
+#include "machine-labels.i"
 };
 #endif
 
@@ -149,7 +150,7 @@ long engine(Cell *ip0, Cell *sp, char *fp)
 #define spTOS (sp[0])
 #endif
   static Label   labels[] = {
-#include "mini-labels.i"
+#include "machine-labels.i"
   };
 #ifdef MORE_VARS
   MORE_VARS
@@ -171,11 +172,11 @@ long engine(Cell *ip0, Cell *sp, char *fp)
 
 #ifdef __GNUC__
   NEXT;
-#include "mini-vm.i"
+#include "machine-vm.i"
 #else  
  next_inst:
   switch((*ip++).inst) {
-#include "mini-vm.i"
+#include "machine-vm.i"
   default:
     fprintf(stderr,"unknown instruction %d at %p\n", ip[-1], ip-1);
     exit(1);
