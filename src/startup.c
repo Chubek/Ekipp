@@ -36,6 +36,8 @@ extern uint8_t comment_left_token[TOK_MAX + 1];
 extern uint8_t comment_right_token[TOK_MAX + 1];
 extern uint8_t delim_left_token[TOK_MAX + 1];
 extern uint8_t delim_right_token[TOK_MAX + 1];
+extern uint8_t template_delim_left_token[TOK_MAX + 1];
+extern uint8_t template_delim_right_token[TOK_MAX + 1];
 
 static void set_tokens(void) {
 	setenv("EKIPP_ENGAGE_PREFIX_TOK", "#!", false);
@@ -48,6 +50,8 @@ static void set_tokens(void) {
 	setenv("EKIPP_COMMENT_RIGHT_TOK", "*/", false);
 	setenv("EKIPP_DELIM_LEFT_TOK", ":>", false);
 	setenv("EKIPP_DELIM_RIGHT_TOK", "<:", false);
+	setenv("EKIPP_TMPL_DELIM_LEFT_TOK", "(?", false);
+	setenv("EKIPP_TMPL_DELIM_RIGHT_TOK", "!)", false);
 }
 
 static void hook_tokens(void) {
@@ -71,6 +75,11 @@ static void hook_tokens(void) {
 			getenv("EKIPP_DELIM_LEFT_TOK"), MAX_TOKEN);
 	strncpy(&delim_right_token[0],
 			getenv("EKIPP_DELIM_RIGHT_TOK"), MAX_TOKEN);
+	strncpy(&template_delim_left_token[0],
+			getenv("EKIPP_TMPL_DELIM_LEFT_TOK"), MAX_TOKEN);
+	strncpy(&template_delim_right_token[0],
+			getenv("EKIPP_TMPL_DELIM_RIGHT_TOK"), MAX_TOKEN);
+
 }
 
 static uint8_t* yyreflect(const char* input) {
