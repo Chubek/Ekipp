@@ -114,7 +114,7 @@ void gen_main_end(void)
 %type <instp> elsepart
 %type <instp> dopart
 %type <sval> quote
-
+%type <tval> txpr
 
 %start prep
 %%
@@ -210,6 +210,7 @@ stat : IF txpr THEN   { gen_zbranch(&vmcodep, 0); $<instp>$ = vmcodep; }
 			      else if (var_type($<sval>1) == VAR_FLOAT)
 			      	gen_storelocalflt(&vmcodep,
 					var_offset($<sval>1));		}
+     | IDENT INIT_ASSIGN txpr { insert_local($<sval>1, $<tval>3);	}
      | OUTPUT STD_OUT
      	'$' txpr      	    { gen_output(&vmcodep, 1);			}
      | OUTPUT STD_ERR	   
@@ -267,34 +268,34 @@ string : SQ_TXT 		 { gen_litstr(&vmcodep, $<sval>1); }
        | TBT_TXT		 { gen_litstr(&vmcodep, $<sval>1); }
        ;
 
-txpr : term '+' term     { gen_add(&vmcodep);     }
-     | term '-' term     { gen_sub(&vmcodep);     }
-     | term '*' term     { gen_mul(&vmcodep);     }
-     | term '&' term     { gen_and(&vmcodep);     }
-     | term '%' term	 { gen_rem(&vmcodep);     }
-     | term '|' term     { gen_or(&vmcodep);      }
-     | term '<' term     { gen_lt(&vmcodep);      }
-     | term '>' term	 { gen_gt(&vmcodep);      }
-     | term '^' term	 { gen_xor(&vmcodep);     }
-     | fterm '+' fterm	 { gen_fadd(&vmcodep);    }
-     | fterm '-' fterm	 { gen_fsub(&vmcodep);    }
-     | fterm '*' fterm	 { gen_fmul(&vmcodep);	  }
-     | fterm '/' fterm	 { gen_fdiv(&vmcodep);	  }
-     | fterm POW fterm	 { gen_fpow(&vmcodep);    }
-     | term DIV fterm	 { gen_idiv(&vmcodep);    }
-     | term AND term	 { gen_land(&vmcodep);    }
-     | term OR  term	 { gen_lor(&vmcodep);     }
-     | term POW term	 { gen_pow(&vmcodep);	  }
-     | term SHR term	 { gen_shr(&vmcodep);	  }
-     | term SHL term	 { gen_shl(&vmcodep);	  }
-     | term GE  term	 { gen_ge(&vmcodep);	  }
-     | term LE  term 	 { gen_le(&vmcodep);	  }
-     | term EQ  term	 { gen_eq(&vmcodep);	  }
-     | term NE  term	 { gen_ne(&vmcodep);	  }
-     | '!' term          { gen_not(&vmcodep);     }
-     | '-' term          { gen_neg(&vmcodep);     }
-     | term
-     | scat
+txpr : term '+' term     { gen_add(&vmcodep); $$ = VAR_INT;    }
+     | term '-' term     { gen_sub(&vmcodep); $$ = VAR_INT;    }
+     | term '*' term     { gen_mul(&vmcodep); $$ = VAR_INT;    }
+     | term '&' term     { gen_and(&vmcodep); $$ = VAR_INT;    }
+     | term '%' term	 { gen_rem(&vmcodep); $$ = VAR_INT;    }
+     | term '|' term     { gen_or(&vmcodep);  $$ = VAR_INT;    }
+     | term '<' term     { gen_lt(&vmcodep);  $$ = VAR_INT;    }
+     | term '>' term	 { gen_gt(&vmcodep);  $$ = VAR_INT;    }
+     | term '^' term	 { gen_xor(&vmcodep); $$ = VAR_INT;    }
+     | fterm '+' fterm	 { gen_fadd(&vmcodep); $$ = VAR_FLOAT;  }
+     | fterm '-' fterm	 { gen_fsub(&vmcodep); $$ = VAR_FLOAT;  }   
+     | fterm '*' fterm	 { gen_fmul(&vmcodep); $$ = VAR_FLOAT;  }
+     | fterm '/' fterm	 { gen_fdiv(&vmcodep); $$ = VAR_FLOAT;  }
+     | fterm POW fterm	 { gen_fpow(&vmcodep); $$ = VAR_FLOAT;  }
+     | term DIV fterm	 { gen_idiv(&vmcodep); $$ = VAR_FLOAT;  }
+     | term AND term	 { gen_land(&vmcodep); $$ = VAR_FLOAT;  }
+     | term OR  term	 { gen_lor(&vmcodep);  $$ = VAR_INT;  	}
+     | term POW term	 { gen_pow(&vmcodep);  $$ = VAR_INT;  	}
+     | term SHR term	 { gen_shr(&vmcodep);  $$ = VAR_INT;    }
+     | term SHL term	 { gen_shl(&vmcodep);  $$ = VAR_INT;    }
+     | term GE  term	 { gen_ge(&vmcodep);   $$ = VAR_INT;    }
+     | term LE  term 	 { gen_le(&vmcodep);   $$ = VAR_INT;    }
+     | term EQ  term	 { gen_eq(&vmcodep);   $$ = VAR_INT;    }
+     | term NE  term	 { gen_ne(&vmcodep);   $$ = VAR_INT;    }
+     | '!' term          { gen_not(&vmcodep);  $$ = VAR_INT;    }
+     | '-' term          { gen_neg(&vmcodep);  $$ = VAR_INT;    }
+     | term		 { $$ = VAR_INT;			}
+     | scat		 { $$ = VAR_STR;			}
      ;
 
 scat : scat '+' string           { gen_strcat(&vmcodep);  	   }
