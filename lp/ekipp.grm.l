@@ -247,15 +247,15 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 
 <ENG>include	return INCLUDE;
 
-<TMPL>[']      { BEGIN(SQ_STR);	return SQ;  }
-<TMPL>["]      { BEGIN(DQ_STR); return DQ;  }
-<TMPL>"```"    { BEGIN(TBT_STR); return TBT; }
+<TMPL>[']      { BEGIN(SQ_STR);  }
+<TMPL>["]      { BEGIN(DQ_STR);  }
+<TMPL>"```"    { BEGIN(TBT_STR); }
 <SQ_STR>[^']+  { yylval.sval = gc_strdup(&yytext[0]); return SQ_TXT;   }
 <DQ_STR>[^"]+  { yylval.sval = gc_strdup(&yytext[0]); return DQ_TXT;   }
 <TBT_STR>[^`]  { yylval.sval = gc_strdup(&yytext[0]); return TBT_TXT;  }
-<SQ_STR>[^\\]/[']   { BEGIN(TMPL); return SQ;  }
-<DQ_STR>[^\\]/["]   { BEGIN(TMPL); return DQ;  }
-<SQ_STR>[^\\]/"```" { BEGIN(TMPL); return TBT; }
+<SQ_STR>[^\\]/[']   { BEGIN(TMPL); }
+<DQ_STR>[^\\]/["]   { BEGIN(TMPL); }
+<SQ_STR>[^\\]/"```" { BEGIN(TMPL); }
 
 <TMPL>[;,()=]  return *yytext;
 <TMPL>:=	return INIT_ASSIGN;
