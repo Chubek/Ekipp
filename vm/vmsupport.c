@@ -183,75 +183,40 @@ HandleTable *lookup_handle(char *name) {
 
 FILE *get_handle(char *name) { return lookup_handle(name)->handle; }
 
-#define CODE_SIZE 65536
-#define STACK_SIZE 65536
+#define CODE_SIZE 	(1 << 18)
+#define STACK_SIZE 	(1 << 18)
 typedef long (*engine_t)(Inst *ip0, Cell *sp, char *fp);
+Inst* vm_code 	= NULL;
+Inst* start  	= NULL;
+Cell *stack	= NULL;
+engine_t runvm;
 
-char *program_name;
+void init_vm(void) {
+  vm_code = GC_MALLOC(CODE_SIZE * sizeof(Inst));
+  stack   = GC_MALLOC(STACK_SIZE * sizeof(Cell));
+  runvm   = engine;
 
-int main(int argc, char **argv) {
-  int disassembling = 0;
-  int profiling = 0;
-  int c;
-  Inst *vm_code = (Inst *)calloc(CODE_SIZE, sizeof(Inst));
-  Inst *start;
-  Cell *stack = (Cell *)calloc(STACK_SIZE, sizeof(Cell));
-  engine_t runvm = engine;
-
-  while ((c = getopt(argc, argv, "hdpt")) != -1) {
-    switch (c) {
-    default:
-    case 'h':
-    help:
-      fprintf(stderr,
-              "Usage: %s [options] file\nOptions:\n-h	Print this message and "
-              "exit\n-d	disassemble VM program before execution\n-p	"
-              "profile VM code sequences (output on stderr)\n-t	trace VM code "
-              "execution (output on stderr)\n",
-              argv[0]);
-      exit(1);
-    case 'd':
-      disassembling = 1;
-      break;
-    case 'p':
-      profiling = 1;
-      use_super = 0; /* we don't want superinstructions in the profile */
-      runvm = engine_debug;
-      break;
-    case 't':
-      vm_debug = 1;
-      runvm = engine_debug;
-      break;
-    }
-  }
-  if (optind + 1 != argc)
-    goto help;
-  program_name = argv[optind];
-  if ((yyin = fopen(program_name, "r")) == NULL) {
-    perror(argv[optind]);
-    exit(1);
-  }
-
-  /* initialize everything */
   vmcodep = vm_code;
   vm_out = stderr;
-  (void)runvm(NULL, NULL, NULL); /* initialize vm_prim */
+  
+  (void)runvm(NULL, NULL, NULL);
   init_peeptable();
 
-  if (yyparse())
-    exit(1);
+}
+ 
 
-  start = vmcodep;
+
+void execute_vm(int profiling, int disassembling) {
+  start 	= vmcodep;
   gen_main_end();
-  vmcode_end = vmcodep;
+  vmcode_end 	= vmcodep;
 
   if (disassembling)
     vm_disassemble(vm_code, vmcodep, vm_prim);
 
-  printf("result = %ld\n", runvm(start, stack + STACK_SIZE - 1, NULL));
-
+  runvm(start, stack + STACK_SIZE - 1, NULL);
+  
   if (profiling)
     vm_print_profile(vm_out);
 
-  return 0;
 }
