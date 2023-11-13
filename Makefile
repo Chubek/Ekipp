@@ -12,10 +12,20 @@ EKIPP_SRC  := $(SRC_DIR)/ekipp.c $(SRC_DIR)/startup.c
 
 LP_SRC     := yy.tab.c lex.yy.c body.tab.c
 
-DEP_LIBS   := -ll -lm -lreadline -lunistring
+DEP_LIBS   := -ll -lgc -lm -lreadline -lunistring
+
+ifeq ($(VM_DEBUG),1)
+	DEFINES := -DVM_DEBUG -Dengine=debug_engine
+else ifeq (VM_DEBUG,2)
+	DEFINES := -DVM_DEBUG -DVM_PROFILING -Dengine=debug_engine
+else
+	DEFINES := -Dengine=debug_engine
+endif
+
+DISALBE_NOTES := -fcompare-debug-second
 
 ekipp: mkall
-	cc $(DEBUG) -I. -I$(VM_DIR) -I$(SRC_DIR) $(EKIPP_SRC) $(VM_SRC)  $(LP_SRC) $(DEP_LIBS) -o ekipp
+	$(CC) $(DISABLE_NOTES) $(DEBUG) $(DEFINES) -I. -I$(VM_DIR) -I$(SRC_DIR) $(EKIPP_SRC) $(VM_SRC)  $(LP_SRC) $(DEP_LIBS) -o ekipp
 
 .PHONY : dist
 dist:
@@ -37,22 +47,22 @@ $(VM_GEN): body.tab.c
 	vmgen $(VM_DIR)/machine.vmg
 
 body.tab.c: body.tab.h
-	yacc --output=body.tab.c $(LP_DIR)/body.grm.y
+	yacc $(YACC_OPTS) -bbody --output=body.tab.c $(LP_DIR)/body.grm.y
 
 body.tab.h: re2c.gen.c
-	yacc --output=body.tab.h -d $(LP_DIR)/body.grm.y
+	yacc --output=body.tab.h -bbody -d $(LP_DIR)/body.grm.y
 
 re2c.gen.c: yy.tab.c
 	re2c -o re2c.gen.c -T $(LP_DIR)/body.grm.re2c
 
 yy.tab.c: yy.tab.h
-	yacc --output=yy.tab.c $(LP_DIR)/ekipp.grm.y
+	yacc $(YACC_OPTS) -byy --output=yy.tab.c $(LP_DIR)/ekipp.grm.y
 
 yy.tab.h: lex.yy.c 
-	yacc --output=yy.tab.h -d $(LP_DIR)/ekipp.grm.y
+	yacc --output=yy.tab.h -byy -d $(LP_DIR)/ekipp.grm.y
 
 lex.yy.c: clean
-	lex $(LEX_DEBUG) --outfile=lex.yy.c $(LP_DIR)/ekipp.grm.l
+	lex $(LEX_OPTS) --outfile=lex.yy.c $(LP_DIR)/ekipp.grm.l
 
 .PHONY : clean
 clean: 
