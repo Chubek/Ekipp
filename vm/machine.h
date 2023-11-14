@@ -97,17 +97,19 @@ int yyparse(void);
 
 /* ekipp-specific functions */
 void resolve_namespace(uint8_t* path);
-void  insert_func(char *name, Inst *start, int locals, int nonparams);
-Inst* func_addr(char *name);
+void  insert_func(char* name, Inst* start, 
+			int locals, int nonparams, int retrtype);
+Inst* func_addr(char* name);
+int   func_retrtype(char* name);
 long  func_calladjust(char *name);
-void  insert_local(char *name, int type);
-long  var_offset(char *name);
-int   var_type(char *name);
-void insert_handle(char *name, FILE *handle);
-FILE* get_handle(char *name);
-void gen_main_end(void);
-void init_vm(void);
-void execute_vm(int profiling, int disassembling);
+void  insert_local(char* name, int type);
+long  var_offset(char* name);
+int   var_type(char* name);
+void  insert_handle(char* name, FILE *handle);
+FILE* get_handle(char* name);
+void  gen_main_end(void);
+void  init_vm(void);
+void  execute_vm(int profiling, int disassembling);
 
 /* stack pointer change for a function with n nonparams */
 #define adjust(n)  ((n) * -sizeof(Cell))

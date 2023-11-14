@@ -83,18 +83,21 @@ typedef struct FuncTable {
   Inst *start;
   int params;
   int nonparams;
+  int retrtype;
 } FuncTable;
 
 FuncTable *ftab = NULL;
 
-void insert_func(char *name, Inst *start, int locals, int nonparams) {
+void insert_func(char *name, Inst *start, 
+			int locals, int nonparams, int retrtype) {
   FuncTable *node = GC_MALLOC(sizeof(FuncTable));
 
-  node->next = ftab;
-  node->name = name;
-  node->start = start;
-  node->params = locals - nonparams;
+  node->next      = ftab;
+  node->name      = name;
+  node->start     = start;
+  node->params    = locals - nonparams;
   node->nonparams = nonparams;
+  node->retrtype  = retrtype;
   ftab = node;
 }
 
@@ -109,6 +112,8 @@ FuncTable *lookup_func(char *name) {
 }
 
 Inst *func_addr(char *name) { return lookup_func(name)->start; }
+
+int func_retrtype(char* name) { return lookup_func(name)->retrtype; }
 
 long func_calladjust(char *name) {
   return adjust(lookup_func(name)->nonparams);

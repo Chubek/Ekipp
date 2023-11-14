@@ -190,11 +190,23 @@ aoldfp = fp;
 sp = (Cell *)(((char *)sp)+iadjust);
 fp = (char *)sp;
 
-return ( #iadjust target afp ptr1 -- ptr2 )
+returnnum ( #iadjust target afp i1 -- i2 )
 SET_IP(target);
 sp = (Cell *)(((char *)sp)+iadjust);
 fp = afp;
-ptr2=ptr1;
+i2=i1;
+
+returnstr ( #iadjust target afp str1 -- str2 )
+SET_IP(target);
+sp = (Cell *)(((char *)sp)+iadjust);
+fp = afp;
+str2=str1;
+
+returnflt ( #iadjust target afp f1 -- f2 )
+SET_IP(target);
+sp = (Cell *)(((char *)sp)+iadjust);
+fp = afp;
+f2=f1;
 
 loadlocalstr ( #ioffset -- str )
 vm_Cell2str(*(Cell *)(fp+ioffset),str);
@@ -231,3 +243,11 @@ end ( ptr -- )
 block_insert(IP);
 #endif
 return (long int)ptr;
+
+lln = loadlocalnum litnum
+
+llf = loadlocalflt litflt
+
+llstr = loadlocalstr litstr
+
+llfile = loadlocalfile litfile
