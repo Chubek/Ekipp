@@ -47,6 +47,7 @@ Binary		[0bB][0-1]+
 Float		[0-9]*[eE\.][-+][0-9]+
 Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 
+%x TCOMMENT
 %x TQUOTE
 %x ESC
 %x ENG
@@ -111,6 +112,11 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 		ECHO;
 
 }
+
+<TMPL>"#" BEGIN(TCOMMENT);
+<TCOMMENT>. {}
+<TCOMMENT>\n BEGIN(TMPL);
+
 <ENCLOSE>"\\"/[#!@%&<>:] { 
 	yylval.sval = GC_REALLOC(yylval.sval, yyleng + 1);
 	yylval.sval[yyleng - 1] = yytext[1];
@@ -249,15 +255,18 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 <TMPL>[']      { BEGIN(SQ_STR);  }
 <TMPL>["]      { BEGIN(DQ_STR);  }
 <TMPL>"```"    { BEGIN(TBT_STR); }
-<SQ_STR>[^']+  { yylval.sval = gc_strdup(&yytext[0]); return SQ_TXT;   }
-<DQ_STR>[^"]+  { yylval.sval = gc_strdup(&yytext[0]); return DQ_TXT;   }
-<TBT_STR>[^`]  { yylval.sval = gc_strdup(&yytext[0]); return TBT_TXT;  }
-<SQ_STR>[^\\]/[']   { BEGIN(TMPL); }
-<DQ_STR>[^\\]/["]   { BEGIN(TMPL); }
-<SQ_STR>[^\\]/"```" { BEGIN(TMPL); }
+<SQ_STR>"\\"/['] { yytext[yyleng - 1] = '\''; }
+<DQ_STR>"\\"/["] { yytext[yyleng - 1] = '"';  }
+<TBT_STR>"\\"/[`] { yytext[yyleng - 1] = '`';  }
+<SQ_STR>[^'\n]+  { yylval.sval = gc_strdup(&yytext[0]);  }
+<DQ_STR>[^"\n]+  { yylval.sval = gc_strdup(&yytext[0]);  }
+<TBT_STR>[^`]+   { yylval.sval = gc_strdup(&yytext[0]); }
+<SQ_STR>[']    { BEGIN(TMPL); return SQ_TXT; }
+<DQ_STR>["]    { BEGIN(TMPL); return DQ_TXT; }
+<TBT_STR>"```" { BEGIN(TMPL); return TBT_TXT; }
 
-<TMPL>[;,!()=+\-\*\%\/]   return *yytext;
-<TMPL>"//"		 return IDIV;
+<TMPL>[;,!()=+\-\*\%\/$]  return *yytext;
+<TMPL>"//"		  return IDIV;
 
 <TMPL>:=	return INIT_ASSIGN;
 <TMPL>func	return FUNC;
