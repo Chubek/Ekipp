@@ -1,0 +1,6 @@
+<#
+func main() : int =
+  var i : int;
+  return 22;
+end func;
+#>
