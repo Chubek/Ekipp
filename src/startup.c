@@ -50,8 +50,8 @@ static void set_tokens(void) {
 	setenv("EKIPP_COMMENT_RIGHT_TOK", "*/", false);
 	setenv("EKIPP_DELIM_LEFT_TOK", ":>", false);
 	setenv("EKIPP_DELIM_RIGHT_TOK", "<:", false);
-	setenv("EKIPP_TMPL_DELIM_LEFT_TOK", "(?", false);
-	setenv("EKIPP_TMPL_DELIM_RIGHT_TOK", "!)", false);
+	setenv("EKIPP_TMPL_DELIM_LEFT_TOK", "<#", false);
+	setenv("EKIPP_TMPL_DELIM_RIGHT_TOK", "#>", false);
 }
 
 static void hook_tokens(void) {
