@@ -1,4 +1,5 @@
 <# 
+# this is a comment
 func main() : int = 
  >>> file::this $ "print this to yyout" ;
  return 0;
