@@ -69,7 +69,7 @@ void gen_main_end(void)
   BB_BOUNDARY;
 }
 %}
-
+%define parse.error detailed
 %token ENGAGE_PREFIX CALL_PREFIX CALL_SUFFIX DEF_PREFIX DLEFT DRIGHT QLEFT QRIGHT
 %token ENCLOSED ESC_TEXT REGEX ARGNUM
 %token TRANSLIT LSDIR CATFILE DATETIME OFFSET INCLUDE PATSUB SUBSTITUTE
@@ -77,7 +77,7 @@ void gen_main_end(void)
 %token ARG_NUM ARG_IDENT ARG_STR IDENT
 %token DIVERT UNDIVERT
 %token EXIT ERROR PRINT PRINTF ENVIRON FILEPATH SEARCH ARGV CURRENT
-%token GE LE EQ NE SHR SHL POW DIV AND OR INCR DECR IFEX CHEVRON XCHN_MARK
+%token GE LE EQ NE SHR SHL POW IDIV AND OR INCR DECR IFEX CHEVRON XCHN_MARK
 %token DIVNUM NUM FLOATNUM
 %token DEFEVAL DEFINE EXCHANGE
 %token FUNC RETURN VAR TYPE ELSE IF DO WHILE FOR END THEN INIT_ASSIGN
@@ -88,7 +88,7 @@ void gen_main_end(void)
 %token COMMENTLEFT DELIMLEFT TMPLDELIMLEFT QUOTELEFT
 %token COMMENTRIGHT DELIMRIGHT TMPLDELIMRIGHT QUOTERIGHT
 %token ENGAGEPREFIX CALLPREFIX DEFPREFIX CALLSUFFIX CHANGETOKEN CHNGVAL
-%token TEMPLATE_DELIM_LEFT TEMPLATE_DELIM_RIGHT
+%token TEMPLATE_DELIM_BEGIN TEMPLATE_DELIM_END
 
 %left    '*' '/' '%' POW
 %left     '>' '<' LE GE
@@ -109,12 +109,13 @@ void gen_main_end(void)
 	}		handle;
 }
 
-%type <sval> delimited
-%type <ival> expr
+%type <sval>  delimited
+%type <ival>  expr
 %type <instp> elsepart
 %type <instp> dopart
-%type <sval> quote
-%type <tval> txpr
+%type <sval>  quote
+%type <tval>  txpr
+%type <tval>  term
 
 %start prep
 %%
@@ -152,8 +153,8 @@ main : exit
      | '\n'
      ;
 
-template : DELIM_TEMPLATE_BEGIN { init_vm(); }
-	 	program DELIM_TEMPLATE_END { execute_vm(0, 0);	}
+template : TEMPLATE_DELIM_BEGIN { init_vm(); }
+	 	program TEMPLATE_DELIM_END { execute_vm(0, 0);	}
 	 ;
 
 program : program function
@@ -162,10 +163,18 @@ program : program function
 
 
 function : FUNC IDENT   { locals = 0; nonparams = 0; } '(' params ')'
+	 ':' TYPE '='
 	 vars		{ insert_func($<sval>2, vmcodep, 
-	 			locals, nonparams);	}
-	 stats RETURN expr ';'
-	 END FUNC ';'	{ gen_return(&vmcodep, -adjust(locals)); }
+	 			locals, nonparams, $<tval>8);	}
+	 stats RETURN txpr ';'
+	 END FUNC ';'	{ 
+	 	   if ($<tval>8 == VAR_INT)	
+				gen_returnnum(&vmcodep, -adjust(locals));
+		   else if ($<tval>8 == VAR_STR)
+		        	gen_returnstr(&vmcodep, -adjust(locals));
+		   else if ($<tval>8 == VAR_FLOAT)
+				gen_returnflt(&vmcodep, -adjust(locals));
+		}
 	 ;
 
 params : IDENT ':' TYPE ',' { insert_local($<sval>1, 
@@ -263,54 +272,53 @@ elsepart : ELSE { gen_branch(&vmcodep, 0); $<instp>$ = vmcodep;
 	 ;
 
 
-string : SQ_TXT 		 { gen_litstr(&vmcodep, $<sval>1); }
-       | DQ_TXT			 { gen_litstr(&vmcodep, $<sval>1); }
-       | TBT_TXT		 { gen_litstr(&vmcodep, $<sval>1); }
-       ;
-
-txpr : term '+' term     { gen_add(&vmcodep); $$ = VAR_INT;    }
-     | term '-' term     { gen_sub(&vmcodep); $$ = VAR_INT;    }
-     | term '*' term     { gen_mul(&vmcodep); $$ = VAR_INT;    }
-     | term '&' term     { gen_and(&vmcodep); $$ = VAR_INT;    }
-     | term '%' term	 { gen_rem(&vmcodep); $$ = VAR_INT;    }
-     | term '|' term     { gen_or(&vmcodep);  $$ = VAR_INT;    }
-     | term '<' term     { gen_lt(&vmcodep);  $$ = VAR_INT;    }
-     | term '>' term	 { gen_gt(&vmcodep);  $$ = VAR_INT;    }
-     | term '^' term	 { gen_xor(&vmcodep); $$ = VAR_INT;    }
-     | fterm '+' fterm	 { gen_fadd(&vmcodep); $$ = VAR_FLOAT;  }
-     | fterm '-' fterm	 { gen_fsub(&vmcodep); $$ = VAR_FLOAT;  }   
-     | fterm '*' fterm	 { gen_fmul(&vmcodep); $$ = VAR_FLOAT;  }
-     | fterm '/' fterm	 { gen_fdiv(&vmcodep); $$ = VAR_FLOAT;  }
-     | fterm POW fterm	 { gen_fpow(&vmcodep); $$ = VAR_FLOAT;  }
-     | term DIV fterm	 { gen_idiv(&vmcodep); $$ = VAR_FLOAT;  }
-     | term AND term	 { gen_land(&vmcodep); $$ = VAR_FLOAT;  }
-     | term OR  term	 { gen_lor(&vmcodep);  $$ = VAR_INT;  	}
-     | term POW term	 { gen_pow(&vmcodep);  $$ = VAR_INT;  	}
-     | term SHR term	 { gen_shr(&vmcodep);  $$ = VAR_INT;    }
-     | term SHL term	 { gen_shl(&vmcodep);  $$ = VAR_INT;    }
-     | term GE  term	 { gen_ge(&vmcodep);   $$ = VAR_INT;    }
-     | term LE  term 	 { gen_le(&vmcodep);   $$ = VAR_INT;    }
-     | term EQ  term	 { gen_eq(&vmcodep);   $$ = VAR_INT;    }
-     | term NE  term	 { gen_ne(&vmcodep);   $$ = VAR_INT;    }
-     | '!' term          { gen_not(&vmcodep);  $$ = VAR_INT;    }
-     | '-' term          { gen_neg(&vmcodep);  $$ = VAR_INT;    }
-     | term		 { $$ = VAR_INT;			}
-     | scat		 { $$ = VAR_STR;			}
+txpr : term '+' term     { $$ = $<tval>1;
+     			   if ($1 == VAR_INT && $3 == VAR_INT)
+     				gen_add(&vmcodep);
+			   else if ($1 == VAR_FLOAT)
+			   	gen_fadd(&vmcodep);
+			   else if ($1 == VAR_STR && $3 == VAR_STR)
+			   	gen_strcat(&vmcodep);		}
+     | term '-' term     { $$ = $<tval>1;
+     			   if ($1 == VAR_INT && $3 == VAR_INT)
+     				gen_sub(&vmcodep);
+			   else if ($1 == VAR_FLOAT)
+			   	gen_fsub(&vmcodep);		}
+     | term '*' term     { $$ = $<tval>1;
+     			   if ($1 == VAR_INT && $3 == VAR_INT)
+	                         gen_mul(&vmcodep);   
+			   else if ($1 == VAR_FLOAT)
+			   	 gen_fmul(&vmcodep);		}
+     | term '&' term     { gen_and(&vmcodep); $$ = $<tval>1;    }
+     | term '%' term	 { gen_rem(&vmcodep); $$ = $<tval>1;    }
+     | term '|' term     { gen_or(&vmcodep);  $$ = $<tval>1;    }
+     | term '<' term     { gen_lt(&vmcodep);  $$ = $<tval>1;    }
+     | term '>' term	 { gen_gt(&vmcodep);  $$ = $<tval>1;    }
+     | term '^' term	 { gen_xor(&vmcodep); $$ = $<tval>1;    }
+     | term IDIV term	 { gen_idiv(&vmcodep); $$ = $<tval>1;	}
+     | term AND term	 { gen_land(&vmcodep); $$ = $<tval>1;  }
+     | term OR  term	 { gen_lor(&vmcodep);  $$ = $<tval>1;  	}
+     | term POW term	 { gen_pow(&vmcodep);  $$ = $<tval>1;  	}
+     | term SHR term	 { gen_shr(&vmcodep);  $$ = $<tval>1;    }
+     | term SHL term	 { gen_shl(&vmcodep);  $$ = $<tval>1;    }
+     | term GE  term	 { gen_ge(&vmcodep);   $$ = $<tval>1;    }
+     | term LE  term 	 { gen_le(&vmcodep);   $$ = $<tval>1;    }
+     | term EQ  term	 { gen_eq(&vmcodep);   $$ = $<tval>1;    }
+     | term NE  term	 { gen_ne(&vmcodep);   $$ = $<tval>1;    }
+     | '!' term          { gen_not(&vmcodep);  $$ = $<tval>1;    }
+     | '-' term          { gen_neg(&vmcodep);  $$ = $<tval>1;    }
+     | term		 { $$ = $<tval>1;			}
      ;
 
-scat : scat '+' string           { gen_strcat(&vmcodep);  	   }
-     | string			 { gen_litstr(&vmcodep, $<sval>1); }
-     ;
 
-fterm : FLOATNUM			{ gen_litflt(&vmcodep,
-     				          	$<fval>1);          }
-     ;
 
 term : '(' txpr ')'
      | IDENT '(' targ ')'	{ gen_call(&vmcodep, 
      					func_addr($<sval>1),
-					func_calladjust($<sval>1)); }
+					func_calladjust($<sval>1));
+					$$ = func_retrtype($<sval>1);   }
      | IDENT			{ int type = var_type($<sval>1);
+     				  $$ = type;
 				  if (type == VAR_INT)
 					gen_loadlocalnum(&vmcodep, 
      						var_offset($<sval>1));	  
@@ -320,8 +328,17 @@ term : '(' txpr ')'
 				  else if (type == VAR_FLOAT)
 				  	gen_loadlocalflt(&vmcodep,
 						var_offset($<sval>1));
-								    }
-     | NUM			{ gen_litnum(&vmcodep, $<ival>1);   }
+									}
+     | SQ_TXT                  { gen_litstr(&vmcodep, $<sval>1);
+     					$$ = VAR_STR;			}
+     | DQ_TXT                  { gen_litstr(&vmcodep, $<sval>1); 
+     					$$ = VAR_STR;			}
+     | TBT_TXT                 { gen_litstr(&vmcodep, $<sval>1); 
+     					$$ = VAR_STR;			}
+     | NUM		       { gen_litnum(&vmcodep, $<ival>1);
+     					$$ = VAR_INT;			}
+     | FLOATNUM		       { gen_litflt(&vmcodep, $<fval>1); 
+     					$$ = VAR_FLOAT;			}
      ;
 
 targ : txpr ',' targ

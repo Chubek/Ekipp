@@ -70,7 +70,7 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 %s DIV1
 %s DIV2
 %%
-<*>[#!@%&<>{}:]{2} {
+<*>[#!@%&<>:]{2} {
 	if (!u8_strncmp(&engage_prefix_token[0], &yytext[0], 2)) {
 		BEGIN(ENG); return ENGAGE_PREFIX;
 	}
@@ -101,21 +101,21 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
         else if (!u8_strncmp(&delim_right_token[0], &yytext[0], 2)) {
                 BEGIN(INITIAL); return DRIGHT;
         } 
-	else if (!u8_strncmp(&template_delim_left_token[0], &yytext[0], 2)) {
-		BEGIN(TMPL); return TEMPLATE_DELIM_LEFT;
+	else if (!u8_strncmp(&template_delim_left_token[0], &yytext[0], 2))        {
+		BEGIN(TMPL); return TEMPLATE_DELIM_BEGIN;
 	} 
-	else if (!u8_strncmp(&template_delim_right_token[0], &yytext[0], 2)) {
-		BEGIN(INITIAL); return TEMPLATE_DELIM_RIGHT;
+	else if (!u8_strncmp(&template_delim_right_token[0], &yytext[0], 2))       {
+		BEGIN(INITIAL); return TEMPLATE_DELIM_END;
 	}
 	else
 		ECHO;
 
 }
-<ENCLOSE>"\\"/[#!@%&<>{}:]{2} { 
+<ENCLOSE>"\\"/[#!@%&<>:] { 
 	yylval.sval = GC_REALLOC(yylval.sval, yyleng + 1);
 	yylval.sval[yyleng - 1] = yytext[1];
 }
-<ENCLOSE>[^#!@%&<>{}:]+ {
+<ENCLOSE>[^#!@%&<>:]+ {
 	yylval.sval = gc_strdup(&yytext[0]);
 	return ENCLOSED;
 }
@@ -126,14 +126,12 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 <DIV1>[\n]           { BEGIN(DIV2);    return *yytext; }
 <ENG,EVALS,DEFN>[\n]+   { BEGIN(INITIAL); return *yytext;   }
 
-<TMPL>[\n\r]	REJECT;
+<TMPL>[ \t\n\r]	{ };
 
 <DEFN,CALL>[\r\n]	     REJECT;
 <DEFN>define	     return DEFINE;
 <DEFN>defeval	     return DEFEVAL;
 <DEFN>exchange	     return EXCHANGE;
-<DEFN,CALL,TMPL>{Ident}     { yylval.sval = gc_strdup(&yytext[0]);
-				  return IDENT;		}
 <DEFN>"=>"	     return CHEVRON;
 <DEFN>"<>"	     return XCHN_MARK;
 <DEFN>[$(]	     return *yytext;
@@ -167,9 +165,10 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 <ARG>[^$^(^)^,^ ]+ { yylval.sval = gc_strdup(&yytext[0]);
 				return ARG_STR;         }
 
-<TMPL>quote'  		BEGIN(TQUOTE);
-<TQUOTE>.     		ECHO;
-<TQUOTE>'unquote	BEGIN(TMPL);
+<TMPL>q'  		BEGIN(TQUOTE);
+<TQUOTE>"\\'"		fputc('\'', yyout);
+<TQUOTE>[^'']  		ECHO;
+<TQUOTE>"''"	BEGIN(TMPL);
 
 <EVALS,TMPL>{Decimal}	 { yylval.ival = strtoll(yytext, NULL, 10); 
 				return NUM;      }
@@ -257,21 +256,30 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 <DQ_STR>[^\\]/["]   { BEGIN(TMPL); }
 <SQ_STR>[^\\]/"```" { BEGIN(TMPL); }
 
-<TMPL>[;,()=]  return *yytext;
+<TMPL>[;,!()=+\-\*\%\/]   return *yytext;
+<TMPL>"//"		 return IDIV;
+
 <TMPL>:=	return INIT_ASSIGN;
+<TMPL>func	return FUNC;
+<TMPL>var	return VAR;
+<TMPL>return	return RETURN;
 <TMPL>for	return FOR;
 <TMPL>while	return WHILE;
 <TMPL>if	return IF;
 <TMPL>then	return THEN;
+<TMPL>else	return ELSE;
 <TMPL>do	return DO;
 <TMPL>end	return END;
 <TMPL>>>>	return OUTPUT;
 <TMPL><<<	return INPUT;
 
 <TMPL>[:]	{ BEGIN(TYY);  return *yytext;		}
-<TYY>int	{ BEGIN(TMPL); yylval.tval = VAR_INT;	}
-<TYY>str	{ BEGIN(TMPL); yylval.tval = VAR_STR;	}
-<TYY>float	{ BEGIN(TMPL); yylval.tval = VAR_FLOAT;	}
+<TYY>int	{ BEGIN(TMPL); yylval.tval = VAR_INT;
+				return TYPE;            }
+<TYY>str	{ BEGIN(TMPL); yylval.tval = VAR_STR;
+				return TYPE;		}
+<TYY>float	{ BEGIN(TMPL); yylval.tval = VAR_FLOAT;
+				return TYPE;		}
 
 <TMPL>std::in	   return STD_IN;
 <TMPL>std::out     return STD_OUT;
@@ -298,6 +306,9 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 			  yylval.handle.mode = gc_strdup("r+");
 			  return FILE_HANDLE;
 			}
+
+<DEFN,CALL,TMPL>{Ident}     { yylval.sval = gc_strdup(&yytext[0]);
+				  return IDENT;		}
 
 
 <EVALS,TMPL>>=	 return GE;
