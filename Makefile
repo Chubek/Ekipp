@@ -12,7 +12,7 @@ EKIPP_SRC  := $(SRC_DIR)/ekipp.c $(SRC_DIR)/startup.c
 
 LP_SRC     := yy.tab.c lex.yy.c body.tab.c
 
-DEP_LIBS   := -ll -lgc -lm -lreadline -lunistring
+DEP_LIBS   := -ll -ldl -lgc -lffi -lm -lreadline -lunistring
 
 ifeq ($(VM_DEBUG),1)
 	DEFINES := -DVM_DEBUG -Dengine=debug_engine
