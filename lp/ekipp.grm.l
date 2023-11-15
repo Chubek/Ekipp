@@ -253,6 +253,21 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 
 <ENG>include	return INCLUDE;
 
+<TMPL>"var::convert" return CONV;
+<TMPL>"var::conv"    return CONV;
+
+<TMPL>"int->str"   return NUM2STR;
+<TMPL>"str->int"   return STR2NUM;
+<TMPL>"float->str" return FLT2STR;
+<TMPL>"str->float" return STR2FLT;
+<TMPL>"int->float" return NUM2FLT;
+<TMPL>"float->int" return FLT2NUM;
+
+<TMPL>"base::x"	 return BASE16;
+<TMPL>"base::o"  return BASE8;
+<TMPL>"base::d"	 return BASE10;
+<TMPL>"base::b"  return BASE2;
+
 <TMPL>[']      { BEGIN(SQ_STR);  }
 <TMPL>["]      { BEGIN(DQ_STR);  }
 <TMPL>"```"    { BEGIN(TBT_STR); }

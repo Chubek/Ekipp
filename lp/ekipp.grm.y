@@ -91,6 +91,8 @@ void gen_main_end(void)
 %token ENGAGEPREFIX CALLPREFIX DEFPREFIX CALLSUFFIX CHANGETOKEN CHNGVAL
 %token TEMPLATE_DELIM_BEGIN TEMPLATE_DELIM_END
 %token HOOK_LIB HOOK_SYM EXTERN_CALL INTOSYM
+%token BASE10 BASE8 BASE16 BASE2
+%token STR2FLT FLT2STR FLT2NUM NUM2FLT NUM2STR STR2NUM CONV
 
 %left    '*' '/' '%' POW
 %left     '>' '<' LE GE
@@ -118,6 +120,7 @@ void gen_main_end(void)
 %type <sval>  quote
 %type <tval>  txpr
 %type <tval>  term
+%type <ival>  base
 
 %start prep
 %%
@@ -289,6 +292,7 @@ stat : IF txpr THEN   { gen_zbranch(&vmcodep, 0); $<instp>$ = vmcodep; }
 				              var_offset($<sval>10));
 				nonparams++;
 									}
+     | CONV convert
      |;
 
 
@@ -384,10 +388,39 @@ txpr : term '+' term     { $$ = $<tval>1;
      | term NE  term	 { gen_ne(&vmcodep);   $$ = $<tval>1;    }
      | '!' term          { gen_not(&vmcodep);  $$ = $<tval>1;    }
      | '-' term          { gen_neg(&vmcodep);  $$ = $<tval>1;    }
-     | term		 { $$ = $<tval>1;			}
+     | term		 { $$ = $<tval>1;			 }
      ;
 
 
+convert : '(' NUM2STR ')' txpr 
+			  base { gen_litnum(&vmcodep, $5); } '$' 
+			  IDENT { gen_num2str(&vmcodep); 
+			  		gen_storelocalstr(&vmcodep, 
+					var_offset($<sval>8));   	}
+	| '(' STR2NUM ')' txpr 
+			  base { gen_litnum(&vmcodep, $5); } '$' 
+			  IDENT { gen_str2num(&vmcodep); 
+			  	  gen_storelocalnum(&vmcodep, 
+				  var_offset($<sval>8)); 		 }
+	| '(' FLT2STR ')' txpr '$' IDENT { gen_flt2str(&vmcodep); 
+					    gen_storelocalstr(&vmcodep, 
+					    var_offset($<sval>6));	 }
+	| '(' STR2FLT ')' txpr '$' IDENT { gen_str2flt(&vmcodep);
+					    gen_storelocalflt(&vmcodep,
+					    var_offset($<sval>6));  }
+	| '(' FLT2NUM ')' txpr '$' IDENT { gen_flt2num(&vmcodep);
+					    gen_storelocalnum(&vmcodep,
+					    var_offset($<sval>6));   }
+	| '(' NUM2FLT ')' txpr '$' IDENT { gen_num2flt(&vmcodep);
+					     gen_storelocalflt(&vmcodep,
+					     var_offset($<sval>6));  }
+	|;
+
+base : BASE10	{ $$ = 10; }
+     | BASE16 	{ $$ = 16; }
+     | BASE8	{ $$ = 8;  }
+     | BASE2	{ $$ = 2;  }
+     ;
 
 term : '(' txpr ')'		{ $$ = 0;				}
      | IDENT '(' targ ')'	{ gen_call(&vmcodep, 
