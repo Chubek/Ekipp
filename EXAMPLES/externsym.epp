@@ -1,0 +1,9 @@
+<#
+func main() : int = 
+  hook-lib myLib $ file::r::/home/chubak-dvorak/a.out;
+  hook-sym myLib => externfn;
+  1+1;
+  extern-call externfn(22) : int => myresult;
+  return 0;
+end func;
+#>
