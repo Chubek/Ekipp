@@ -81,7 +81,7 @@ void gen_main_end(void)
 %token GE LE EQ NE SHR SHL POW IDIV AND OR INCR DECR IFEX CHEVRON XCHN_MARK
 %token DIVNUM NUM FLOATNUM
 %token DEFEVAL DEFINE EXCHANGE
-%token FUNC RETURN VAR TYPE ELSE IF DO WHILE FOR END THEN INIT_ASSIGN
+%token FUNC RETURN VAR ARRAY TYPE ELSE IF DO WHILE FOR END THEN INIT_ASSIGN
 %token IMPORT NAMESPACE
 %token SQ_TXT DQ_TXT TBT_TXT
 %token DELIM_TEMPLATE_BEGIN DELIM_TEMPLATE_END
@@ -158,6 +158,7 @@ main : exit
      | '\n'
      ;
 
+
 template : TEMPLATE_DELIM_BEGIN { init_vm(); }
 	 	program TEMPLATE_DELIM_END { execute_vm(0, 0);	}
 	 ;
@@ -189,10 +190,23 @@ params : IDENT ':' TYPE ',' { insert_local($<sval>1,
        |;
 
 vars : vars VAR IDENT ':' TYPE ';' { insert_local($<sval>3,
-     							$<tval>5);
-     					nonparams++;		      }
+     						   $<tval>5);
+     					nonparams++;		        }
+     | vars ARRAY '[' txpr 
+     	']' IDENT 
+	':' TYPE ';' {  if ($4 == VAR_INT)
+				gen_storelocalnum(&vmcodep, 
+						var_offset(size_id($<sval>6)));
+			else {
+				fputs("Index for array initialization must be evaluated, or be, an integer\n", stderr);
+				exit(EX_USAGE);
+			}
+			insert_local($<sval>6, $<tval>7 | VAR_ARRAY);
+				nonparams++;
+						   			}
      |;
  
+
 
 stats : stats stat ';'
       |;
@@ -224,6 +238,36 @@ stat : IF txpr THEN   { gen_zbranch(&vmcodep, 0); $<instp>$ = vmcodep; }
 			      else if (var_type($<sval>1) == VAR_FLOAT)
 			      	gen_storelocalflt(&vmcodep,
 					var_offset($<sval>1));		}
+     | IDENT  { if (!var_isarray($<sval>1) 
+     				  || !(var_type($<sval>1) & VAR_INT)) {
+				  	fputs("Array must be of integer tpye to accept integer array literal\n", stderr);
+					exit(EX_USAGE);	  
+				  }
+				    gen_loadlocalptr(&vmcodep, 
+				       var_offset($<sval>1));
+				    gen_loadlocalnum(&vmcodep,
+				       var_offset(size_id($<sval>1)));
+			} '=' numarrlit
+     | IDENT  { if (!var_isarray($<sval>1) 
+      				  || !(var_type($<sval>1) & VAR_FLOAT)) {
+				  	fputs("Array must be of float tpye to accept float array literal\n", stderr);
+					exit(EX_USAGE);	  
+				  }
+				    gen_loadlocalptr(&vmcodep, 
+				       var_offset($<sval>1));
+				    gen_loadlocalnum(&vmcodep,
+				       var_offset(size_id($<sval>1)));
+			} '=' fltarrlit
+     | IDENT  { if (!var_isarray($<sval>1) 
+     				  || !(var_type($<sval>1) & VAR_STR)) {
+				  	fputs("Array must be of string tpye to accept string array literal\n", stderr);
+					exit(EX_USAGE);	  
+				  }
+				    gen_loadlocalptr(&vmcodep, 
+				       var_offset($<sval>1));
+				    gen_loadlocalnum(&vmcodep,
+				       var_offset(size_id($<sval>1)));
+			} '=' strarrlit
      | IDENT INIT_ASSIGN txpr { insert_local($<sval>1, $<tval>3);	}
      | OUTPUT STD_OUT
      	'$' printtxt   	    { gen_output(&vmcodep, 1);			}
@@ -352,6 +396,27 @@ elsepart : ELSE { gen_branch(&vmcodep, 0); $<instp>$ = vmcodep;
 	 |  { $$ = $<instp>0;	}
 	 ;
 
+fltarrlit : '[' fltarrlit ']'
+	    | fltarrlit ',' FLOATNUM { gen_arrlitflt(&vmcodep, 
+	    					$<fval>3);		}
+	    | FLOATNUM		       { gen_arrlitflt(&vmcodep,
+	    					$<fval>1);		}
+	    |;
+
+strarrlit : '[' strarrlit ']'
+	  | strarrlit ',' DQ_TXT  { gen_arrlitstr(&vmcodep, $<sval>3);	}
+	  | DQ_TXT		 { gen_arrlitstr(&vmcodep, $<sval>1);	}
+ 	  | strarrlit ',' SQ_TXT  { gen_arrlitstr(&vmcodep, $<sval>3);	}
+	  | SQ_TXT		 { gen_arrlitstr(&vmcodep, $<sval>1);	}
+	  | strarrlit ',' TBT_TXT { gen_arrlitstr(&vmcodep, $<sval>3);	}
+          | TBT_TXT		 { gen_arrlitstr(&vmcodep, $<sval>1);	}
+	  |;
+
+
+numarrlit : '[' numarrlit ']'
+	  | numarrlit ',' NUM	{ gen_arrlitnum(&vmcodep, $<ival>3);	}
+	  | NUM			{ gen_arrlitnum(&vmcodep, $<ival>1);	}
+	  |;
 
 txpr : term '+' term     { $$ = $<tval>1;
      			   if ($1 == VAR_INT && $3 == VAR_INT)
@@ -422,7 +487,22 @@ base : BASE10	{ $$ = 10; }
      | BASE2	{ $$ = 2;  }
      ;
 
-term : '(' txpr ')'		{ $$ = 0;				}
+term : '(' txpr ')'		{ $$ = 0; }
+     | IDENT '[' txpr ']'	{ if (!var_isarray($<sval>1)) {
+					fputs("Variable is not an array\n", stderr);
+					exit(EX_USAGE);
+				  }
+     				  gen_loadlocalptr(&vmcodep,
+     					var_offset($<sval>1));
+				  if (var_type($<sval>1) & VAR_FLOAT)
+					gen_accessflt(&vmcodep);
+				  else if (var_type($<sval>1) & VAR_INT)
+				  	gen_accessnum(&vmcodep);
+				  else if (var_type($<sval>1) & VAR_STR) {
+				        gen_accessstr(&vmcodep);
+				  }
+				  $$ = var_type($<sval>1);
+									}
      | IDENT '(' targ ')'	{ gen_call(&vmcodep, 
      					func_addr($<sval>1),
 					func_calladjust($<sval>1));
@@ -438,7 +518,7 @@ term : '(' txpr ')'		{ $$ = 0;				}
 				  else if (type == VAR_FLOAT)
 				  	gen_loadlocalflt(&vmcodep,
 						var_offset($<sval>1));
-									}
+								}
      | SQ_TXT                  { gen_litstr(&vmcodep, $<sval>1);
      					$$ = VAR_STR;			}
      | DQ_TXT                  { gen_litstr(&vmcodep, $<sval>1); 
@@ -450,6 +530,7 @@ term : '(' txpr ')'		{ $$ = 0;				}
      | FLOATNUM		       { gen_litflt(&vmcodep, $<fval>1); 
      					$$ = VAR_FLOAT;			}
      ;
+
 
 targ : txpr ',' targ
      | txpr
