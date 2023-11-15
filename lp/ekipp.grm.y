@@ -6,7 +6,8 @@
 #include <stdbool.h>
 #include <string.h>
 #include <math.h>
-
+#include <sysexits.h>
+#include <ffi.h>
 
 #include <unistr.h>
 #include <unistdio.h>
@@ -89,6 +90,7 @@ void gen_main_end(void)
 %token COMMENTRIGHT DELIMRIGHT TMPLDELIMRIGHT QUOTERIGHT
 %token ENGAGEPREFIX CALLPREFIX DEFPREFIX CALLSUFFIX CHANGETOKEN CHNGVAL
 %token TEMPLATE_DELIM_BEGIN TEMPLATE_DELIM_END
+%token HOOK_LIB HOOK_SYM EXTERN_CALL INTOSYM
 
 %left    '*' '/' '%' POW
 %left     '>' '<' LE GE
@@ -187,7 +189,7 @@ vars : vars VAR IDENT ':' TYPE ';' { insert_local($<sval>3,
      							$<tval>5);
      					nonparams++;		      }
      |;
-
+ 
 
 stats : stats stat ';'
       |;
@@ -221,14 +223,14 @@ stat : IF txpr THEN   { gen_zbranch(&vmcodep, 0); $<instp>$ = vmcodep; }
 					var_offset($<sval>1));		}
      | IDENT INIT_ASSIGN txpr { insert_local($<sval>1, $<tval>3);	}
      | OUTPUT STD_OUT
-     	'$' txpr      	    { gen_output(&vmcodep, 1);			}
+     	'$' printtxt   	    { gen_output(&vmcodep, 1);			}
      | OUTPUT STD_ERR	   
-     	'$' txpr	    { gen_output(&vmcodep, 2);			}
+     	'$' printtxt	    { gen_output(&vmcodep, 2);			}
      
      | OUTPUT THIS_FILE	
-     	'$' txpr	    { gen_output(&vmcodep, 3);			}
+     	'$' printtxt	    { gen_output(&vmcodep, 3);			}
      | OUTPUT STD_IN
-     	'$' txpr	    { gen_output(&vmcodep, 0);			}
+     	'$' printtxt	    { gen_output(&vmcodep, 0);			}
      | INPUT STD_OUT        
      	'$' IDENT	    { gen_input(&vmcodep, 1);			}
      	
@@ -239,24 +241,93 @@ stat : IF txpr THEN   { gen_zbranch(&vmcodep, 0); $<instp>$ = vmcodep; }
      | INPUT STD_IN	
      	'$' IDENT	    { gen_input(&vmcodep, 0);			}
      | OUTPUT filehandle 
-     	'$' txpr	    { gen_output_handle(&vmcodep);		}
+     	'$' printtxt	    { gen_output_handle(&vmcodep);		}
      | INPUT  filehandle
      	'$' IDENT	    { gen_input_handle(&vmcodep); 		}
      | txpr		    { gen_drop(&vmcodep);			}
-     | IMPORT NAMESPACE ';' { resolve_namespace($<sval>2); 		}
+     | IMPORT NAMESPACE     { resolve_namespace($<sval>2); 		}
+     | HOOK_LIB 
+     	 IDENT '$'
+     	    filehandlestr   { gen_libopen(&vmcodep);
+				insert_local($<sval>2, VAR_HANDLE);
+				gen_storelocalstr(&vmcodep, 
+					var_offset($<sval>2));
+				nonparams++;				}
+     | HOOK_SYM
+     	 IDENT INTOSYM 
+	 	IDENT	    { 	gen_loadlocalptr(&vmcodep, 
+					var_offset($<sval>2));
+				gen_litstr(&vmcodep, $<sval>4);
+				gen_libsym(&vmcodep);
+				insert_local($<sval>4, VAR_SYMBOL);
+				gen_storelocalstr(&vmcodep, 
+						var_offset($<sval>4));
+				nonparams++;				}
+     | EXTERN_CALL
+     	 IDENT '(' { zero_out_externif();  } 
+	 externcall ')' 
+	 ':' TYPE INTOSYM IDENT { if (var_type($<sval>2) != VAR_SYMBOL) {
+				   fputs("Variable must be an extenral symbol" , stderr);
+				  exit(EX_USAGE);
+				}
+				gen_loadlocalptr(&vmcodep,
+						var_offset($<sval>2));
+				if ($<tval>8 == VAR_STR) {
+					ExternCall->retrtype = ffi_type_pointer;
+					gen_excallstr(&vmcodep);
+				}
+				else if ($<tval>8 == VAR_INT) {
+					ExternCall->retrtype = ffi_type_sint64;
+					gen_excallnum(&vmcodep);
+				}
+				else if ($<tval>8 == VAR_FLOAT) {
+					ExternCall->retrtype = ffi_type_longdouble;
+					gen_excallflt(&vmcodep);
+				} 
+				insert_local($<sval>10, $<tval>8);
+				gen_storelocalstr(&vmcodep, 
+				              var_offset($<sval>10));
+				nonparams++;
+									}
      |;
+
+
+externcall : externcall ',' NUM { add_arg_externif(VAR_INT, 
+	   						(void*)$<ival>3); }
+	   | NUM		{ add_arg_externif(VAR_INT, 
+	   						(void*)$<ival>1); }
+	   |;
+
+printtxt : IDENT		{ int type = var_type($<sval>1);
+	 			   if (type == VAR_STR)
+				   	gen_loadlocalstr(&vmcodep, 
+						var_offset($<sval>1));
+				   else {
+				   	fputs("Variable sent to print must be a string\n", stderr);
+					exit(EX_USAGE);
+					}				}
+	 | SQ_TXT		{ gen_litstr(&vmcodep, $<sval>1);	}
+	 | DQ_TXT		{ gen_litstr(&vmcodep, $<sval>1);	}
+	 | TBT_TXT		{ gen_litstr(&vmcodep, $<sval>1);	}
+	 | txpr			{ if ($1 != VAR_STR) {
+					fputs("Expression sent to print does not evaluate to an string\n", stderr);
+					exit(EX_USAGE);
+				}
+									}
+	 ;
+
+filehandlestr : FILE_HANDLE     { gen_litstr(&vmcodep, $<handle>1.name); }
 
 filehandle : FILE_HANDLE	{ 
 	   			  FILE* handle = NULL;
 		  if ((handle = get_handle($<handle>1.name)) == NULL) {
-			handle = fopen($<handle>1.name,
+		        handle = fopen($<handle>1.name,
 				  	$<handle>1.mode);
 			insert_handle($<handle>1.name, 
 					handle);
 			gen_litfile(&vmcodep, handle);
-		  } else
-		        gen_litfile(&vmcodep, handle);
-			 					      }
+		  } else 
+		        gen_litfile(&vmcodep, handle);			}
 
 dopart : DO { gen_branch(&vmcodep, 0); $<instp>$ = vmcodep;
        		vm_target2Cell(vmcodep, $<instp>0[-1]); 	        }
@@ -312,7 +383,7 @@ txpr : term '+' term     { $$ = $<tval>1;
 
 
 
-term : '(' txpr ')'
+term : '(' txpr ')'		{ $$ = 0;				}
      | IDENT '(' targ ')'	{ gen_call(&vmcodep, 
      					func_addr($<sval>1),
 					func_calladjust($<sval>1));

@@ -68,6 +68,7 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 %x TYY
 %x CHNG
 %x IMP
+%x HANDLE
 %s DIV1
 %s DIV2
 %%
@@ -112,7 +113,7 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 		ECHO;
 
 }
-
+<TMPL>"=>" return INTOSYM;
 <TMPL>"#" BEGIN(TCOMMENT);
 <TCOMMENT>. {}
 <TCOMMENT>\n BEGIN(TMPL);
@@ -174,7 +175,7 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 <TMPL>q'  		BEGIN(TQUOTE);
 <TQUOTE>"\\'"		fputc('\'', yyout);
 <TQUOTE>[^'']  		ECHO;
-<TQUOTE>"''"	BEGIN(TMPL);
+<TQUOTE>"''"		BEGIN(TMPL);
 
 <EVALS,TMPL>{Decimal}	 { yylval.ival = strtoll(yytext, NULL, 10); 
 				return NUM;      }
@@ -282,6 +283,10 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 <TMPL>>>>	return OUTPUT;
 <TMPL><<<	return INPUT;
 
+<TMPL>"hook-lib" 	return HOOK_LIB;
+<TMPL>"hook-sym" 	return HOOK_SYM;
+<TMPL>"extern-call"	return EXTERN_CALL;
+
 <TMPL>[:]	{ BEGIN(TYY);  return *yytext;		}
 <TYY>int	{ BEGIN(TMPL); yylval.tval = VAR_INT;
 				return TYPE;            }
@@ -289,31 +294,34 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 				return TYPE;		}
 <TYY>float	{ BEGIN(TMPL); yylval.tval = VAR_FLOAT;
 				return TYPE;		}
+<TYY>handle	{ BEGIN(TMPL); yylval.tval = VAR_HANDLE;
+				return TYPE;		}
 
 <TMPL>std::in	   return STD_IN;
 <TMPL>std::out     return STD_OUT;
 <TMPL>std::err     return STD_ERR;
 <TMPL>file::this   return THIS_FILE;
 
-<TMPL>"file::read::"/[0-9a-zA-Z_/\-\.]{1,255} {
-			  yylval.handle.name = gc_strdup(&yytext[12]);
+<TMPL>"file::r::"/[0-9a-zA-Z_/\-\.]{1,255} {
 			  yylval.handle.mode = gc_strdup("r");
-			  return FILE_HANDLE;
+			  BEGIN(HANDLE);
 			}
-<TMPL>"file::write::"/[0-9a-zA-Z_/\-\.]{1,255} {
-			  yylval.handle.name = gc_strdup(&yytext[13]);
+<TMPL>"file::w::"/[0-9a-zA-Z_/\-\.]{1,255} {
 			  yylval.handle.mode = gc_strdup("w");
-			  return FILE_HANDLE;
+			  BEGIN(HANDLE);
 			}
-<TMPL>"file::append::"/[0-9a-zA-Z_/\-\.]{1,255} {
-			  yylval.handle.name = gc_strdup(&yytext[14]);
+<TMPL>"file::a::"/[0-9a-zA-Z_/\-\.]{1,255} {
 			  yylval.handle.mode = gc_strdup("a");
-			  return FILE_HANDLE;
+			  BEGIN(HANDLE);
 			}
-<TMPL>"file::readwrite::"/[0-9a-zA-Z_/\-\.]{1,255} {
-			  yylval.handle.name = gc_strdup(&yytext[17]);
+<TMPL>"file::rw::"/[0-9a-zA-Z_/\-\.]{1,255} {
 			  yylval.handle.mode = gc_strdup("r+");
-			  return FILE_HANDLE;
+			  BEGIN(HANDLE);
+			}
+<HANDLE>[0-9a-zA-Z_/\-\.]{1,255} { yylval.handle.name = gc_strdup(&yytext[0]);
+				BEGIN(TMPL);
+
+				return FILE_HANDLE; 
 			}
 
 <DEFN,CALL,TMPL>{Ident}     { yylval.sval = gc_strdup(&yytext[0]);
