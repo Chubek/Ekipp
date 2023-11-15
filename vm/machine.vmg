@@ -172,6 +172,15 @@ if (!ptrhandle) {
 	exit(EX_IOERR);
 }
 
+libargstr ( strarg -- )
+add_arg_externif(VAR_STR, (void*)strarg);
+
+libargnum ( iarg -- )
+add_arg_externif(VAR_INT, (void*)iarg);
+
+libargflt ( farg -- )
+add_arg_externif(VAR_FLOAT, (void*)((unsigned long long)farg));
+
 libsym ( ptrhandle aname -- ptrres )
 ptrres = dlsym(ptrhandle, aname);
 if (!ptrres) {
