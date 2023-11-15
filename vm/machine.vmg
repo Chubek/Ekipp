@@ -301,6 +301,26 @@ block_insert(IP);
 #endif
 return (long int)ptr;
 
+str2num ( strin ibase -- iret )
+iret = strtoll(strin, NULL, ibase);
+
+num2str ( inumin ibase -- strret )
+strret = GC_MALLOC(64);
+u8_sprintf(strret, ibase == 10 ? "%ld" : (ibase == 8 ? "%lo" : "%lx"), inumin);
+
+flt2str ( fin -- strret )
+strret = GC_MALLOC(256);
+u8_sprintf(strret, "%Lf", fin);
+
+str2flt ( strin -- fret )
+fret = strtold(strin, NULL);
+
+flt2num ( fin -- iret )
+iret = lrintl(fin);
+
+num2flt ( inumin -- fret )
+fret = (long double)inumin;
+
 lln = loadlocalnum litnum
 
 llf = loadlocalflt litflt

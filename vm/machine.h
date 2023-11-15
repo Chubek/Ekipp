@@ -11,6 +11,7 @@
 
 #include <gc.h>
 #include <unistr.h>
+#include <unistdio.h>
 
 #include "ekipp.h"
 
