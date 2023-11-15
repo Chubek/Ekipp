@@ -265,7 +265,7 @@ stat : IF txpr THEN   { gen_zbranch(&vmcodep, 0); $<instp>$ = vmcodep; }
 				nonparams++;				}
      | EXTERN_CALL
      	 IDENT '(' { zero_out_externif();  } 
-	 externcall ')' 
+	 externarg ')' 
 	 ':' TYPE INTOSYM IDENT { if (var_type($<sval>2) != VAR_SYMBOL) {
 				   fputs("Variable must be an extenral symbol" , stderr);
 				  exit(EX_USAGE);
@@ -292,12 +292,6 @@ stat : IF txpr THEN   { gen_zbranch(&vmcodep, 0); $<instp>$ = vmcodep; }
      |;
 
 
-externcall : externcall ',' NUM { add_arg_externif(VAR_INT, 
-	   						(void*)$<ival>3); }
-	   | NUM		{ add_arg_externif(VAR_INT, 
-	   						(void*)$<ival>1); }
-	   |;
-
 printtxt : IDENT		{ int type = var_type($<sval>1);
 	 			   if (type == VAR_STR)
 				   	gen_loadlocalstr(&vmcodep, 
@@ -314,7 +308,19 @@ printtxt : IDENT		{ int type = var_type($<sval>1);
 					exit(EX_USAGE);
 				}
 									}
-	 ;
+externarg : txpr ',' externarg  { if ($1 == VAR_INT)
+	  				gen_libargnum(&vmcodep);
+				  else if ($1 == VAR_STR)
+					gen_libargstr(&vmcodep);
+				  else if ($1 == VAR_FLOAT)
+				  	gen_libargflt(&vmcodep);	}
+	  | txpr		{ if ($1 == VAR_INT)
+                                        gen_libargnum(&vmcodep);
+                                  else if ($1 == VAR_STR)
+                                        gen_libargstr(&vmcodep);
+                                  else if ($1 == VAR_FLOAT)
+                                        gen_libargflt(&vmcodep);        }
+	  ;
 
 filehandlestr : FILE_HANDLE     { gen_litstr(&vmcodep, $<handle>1.name); }
 
