@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <dlfcn.h>
 #include <math.h>
 #include <limits.h>
@@ -116,6 +117,9 @@ int yyparse(void);
 void resolve_namespace(uint8_t* path);
 void  insert_func(char* name, Inst* start, 
 			int locals, int nonparams, int retrtype);
+uint8_t* size_id(uint8_t*);
+bool	var_isarray(char*);
+
 Inst* func_addr(char* name);
 int   func_retrtype(char* name);
 long  func_calladjust(char *name);
@@ -138,8 +142,9 @@ void add_arg_externif(int arg_type, void* argval);
 
 #define VAR_INT		1
 #define VAR_STR		2
-#define VAR_FLOAT	3
-#define VAR_HANDLE	4
-#define VAR_SYMBOL	5
+#define VAR_FLOAT	4
+#define VAR_HANDLE	8
+#define VAR_SYMBOL	16
+#define VAR_ARRAY	32
 
 #endif

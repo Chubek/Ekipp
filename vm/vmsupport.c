@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
 #include <ffi.h>
@@ -126,6 +127,13 @@ void resolve_namespace(uint8_t* path) {
   yyin			= inhold;
 }
 
+uint8_t* size_id(uint8_t* id) {
+	size_t 		len = u8_strlen(id);
+	uint8_t*	ret = GC_MALLOC(len + 5);
+	u8_sprintf(ret, "%s_%s", id, "size");
+	return ret;
+}
+
 typedef struct FuncTable {
   struct FuncTable *next;
   char *name;
@@ -204,6 +212,10 @@ long var_offset(char *name) {
 
 int var_type(char* name) {
   return lookup_var(name)->type;
+}
+
+bool var_isarray(char* name) {
+  return var_type(name) & VAR_ARRAY;
 }
 
 typedef struct HandleTable {

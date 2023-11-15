@@ -321,6 +321,61 @@ iret = lrintl(fin);
 num2flt ( inumin -- fret )
 fret = (long double)inumin;
 
+accessstr ( ptrarr idx -- strret )
+uint8_t** arr = (uint8_t**)ptrarr;
+if ((size_t)arr[0] < idx) {
+	fputs("Error: string array out of bounds\n", stderr);
+	exit(EX_USAGE);
+}
+strret = arr[idx];
+
+accessnum ( ptrarr idx -- iret )
+long* arr = (long*)ptrarr;
+if (arr[0] < idx) {
+	fputs("Error: integer array out of bounds\n", stderr);
+	exit(EX_USAGE);
+}
+iret = arr[idx];
+
+accessflt ( ptrarr idx -- fret )
+long double* arr = (long double*)ptrarr;
+if (arr[0] < idx) {
+	fputs("Error: float array out of bounds\n", stderr);
+	exit(EX_USAGE);
+}
+fret = arr[idx];
+
+arrlitnum ( isize ptrarr #iadd -- )
+long* arr = (long*)ptrarr;
+if (arr == NULL) {
+	arr    = GC_MALLOC((isize + 2) * sizeof(long));
+	arr[0] = isize;
+	arr[1] = 2;
+}
+size_t* sptr = (size_t*)&arr[1];
+arr[*sptr++] = iadd;
+
+
+arrlitstr ( isize ptrarr #stradd -- )
+uint8_t** arr = (uint8_t**)ptrarr;
+if (arr == NULL) {
+	arr    = GC_MALLOC((isize + 2) * sizeof(uint8_t*));
+	arr[0] = (uint8_t*)isize;
+	arr[1] = (uint8_t*)2;
+}
+size_t* sptr = (size_t*)&arr[1];
+arr[*sptr++] = stradd;
+
+arrlitflt ( isize ptrarr #fadd -- )
+long double* arr = (long double*)ptrarr;
+if (arr == NULL) {
+	arr    = GC_MALLOC((isize + 2) * sizeof(long double));
+	arr[0] = (long double)((unsigned long)isize);
+	arr[1] = 2;
+}
+size_t* sptr = (size_t*)&arr[1];
+arr[*sptr++] = fadd;
+
 lln = loadlocalnum litnum
 
 llf = loadlocalflt litflt
