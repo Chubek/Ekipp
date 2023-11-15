@@ -5,6 +5,9 @@
 #include <stdint.h>
 #include <dlfcn.h>
 #include <math.h>
+#include <limits.h>
+#include <ffi.h>
+#include <sysexits.h>
 
 #include <gc.h>
 #include <unistr.h>
@@ -17,6 +20,18 @@ typedef void *Label;
 typedef long Label;
 #endif
 
+typedef struct ExternalCall {
+	void** 		arg_values;
+	ffi_type**	arg_types;
+	ffi_type	retrtype;
+	int64_t		arg_integers[UINT8_MAX + 1];
+	long double	arg_floats[UINT8_MAX + 1];
+	uint8_t*	arg_strings[UINT8_MAX + 1];
+	ffi_arg*	result;
+	void*		exfn;
+	int		argc;
+} ExternCallIf;
+
 typedef union Cell {
   long 			i;
   union Cell*		target;
@@ -28,21 +43,21 @@ typedef union Cell {
   void* 		ptr;
 } Cell, 		Inst;
 
-#define vm_Cell2i(_cell,_x)	((_x)=(_cell).i)
-#define vm_i2Cell(_x,_cell)	((_cell).i=(_x))
-#define vm_Cell2f(_cell,_x)	((_x)=(_cell).f)
-#define vm_f2Cell(_x,_cell)	((_cell).f=(_x))
-#define vm_Cell2file(_cell,_x)	((_x)=(_cell).file)
-#define vm_file2Cell(_x,_cell)	((_cell).file=(_x))
-#define vm_Cell2str(_cell,_x)	((_x)=(_cell).str)
-#define vm_str2Cell(_x,_cell)	((_cell).str=(_x))
-#define vm_Cell2ptr(_cell,_x)	((_x)=(_cell).ptr)
-#define vm_ptr2Cell(_x,_cell)	((_cell).ptr=(_x))	
-#define vm_Cell2target(_cell,_x) ((_x)=(_cell).target)
-#define vm_target2Cell(_x,_cell) ((_cell).target=(_x))	
-#define vm_Cell2a(_cell,_x)	((_x)=(_cell).a)
-#define vm_a2Cell(_x,_cell)	((_cell).a=(_x))	
-#define vm_Cell2Cell(_x,_y) ((_y)=(_x))
+#define vm_Cell2i(_cell,_x)		((_x)=(_cell).i)
+#define vm_i2Cell(_x,_cell)		((_cell).i=(_x))
+#define vm_Cell2f(_cell,_x)		((_x)=(_cell).f)
+#define vm_f2Cell(_x,_cell)		((_cell).f=(_x))
+#define vm_Cell2file(_cell,_x)		((_x)=(_cell).file)
+#define vm_file2Cell(_x,_cell)		((_cell).file=(_x))
+#define vm_Cell2str(_cell,_x)		((_x)=(_cell).str)
+#define vm_str2Cell(_x,_cell)		((_cell).str=(_x))
+#define vm_Cell2ptr(_cell,_x)		((_x)=(_cell).ptr)
+#define vm_ptr2Cell(_x,_cell)		((_cell).ptr=(_x))	
+#define vm_Cell2target(_cell,_x) 	((_x)=(_cell).target)
+#define vm_target2Cell(_x,_cell) 	((_cell).target=(_x))	
+#define vm_Cell2a(_cell,_x)		((_x)=(_cell).a)
+#define vm_a2Cell(_x,_cell)		((_cell).a=(_x))	
+#define vm_Cell2Cell(_x,_y) 		((_y)=(_x))
 
 /* for future extensions */
 #define IMM_ARG(access,value)		(access)
@@ -62,6 +77,7 @@ extern Inst *last_compiled;
 extern Inst *vmcode_end;
 extern int use_super;
 extern FILE* yyout;
+extern ExternCallIf* ExternCall;
 
 /* generic vmgen support functions (e.g., wrappers) */
 void gen_inst(Inst **vmcodepp, Label i);
@@ -111,11 +127,18 @@ void  gen_main_end(void);
 void  init_vm(void);
 void  execute_vm(int profiling, int disassembling);
 
+
+void zero_out_externif(void);
+void init_externif(void);
+void add_arg_externif(int arg_type, void* argval);
+
 /* stack pointer change for a function with n nonparams */
 #define adjust(n)  ((n) * -sizeof(Cell))
 
 #define VAR_INT		1
 #define VAR_STR		2
 #define VAR_FLOAT	3
+#define VAR_HANDLE	4
+#define VAR_SYMBOL	5
 
 #endif

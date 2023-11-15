@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <ffi.h>
 
 extern int optind;
 
@@ -9,6 +10,54 @@ extern int optind;
 #include <gc.h>
 
 #include "machine.h"
+
+ExternCallIf*	ExternCall;
+
+void zero_out_externif(void) {
+	memset(ExternCall, 0, sizeof(ExternCallIf));
+	ExternCall->result = GC_MALLOC(sizeof(ffi_arg));
+}
+
+void init_externif(void) {
+	ExternCall = GC_MALLOC(sizeof(ExternCallIf));
+	ExternCall->result = GC_MALLOC(sizeof(ffi_arg));
+}
+
+void add_arg_externif(int arg_type, void* argval) {
+	ExternCall->arg_types =
+		GC_REALLOC(ExternCall->arg_types, sizeof(void*) * (ExternCall->argc + 1));
+	ExternCall->arg_values =
+		GC_REALLOC(ExternCall->arg_values, sizeof(void*) * (ExternCall->argc + 1));
+
+	if (arg_type == VAR_STR) {
+		ExternCall->arg_types[ExternCall->argc] = 
+			&ffi_type_pointer;
+		ExternCall->arg_strings[ExternCall->argc] =
+			(uint8_t*)argval;
+		ExternCall->arg_values[ExternCall->argc] = 
+			(void*)(&ExternCall->arg_strings[ExternCall->argc]);
+		
+	}
+	else if (arg_type == VAR_INT) {
+		ExternCall->arg_types[ExternCall->argc] = 
+			&ffi_type_sint64;
+		ExternCall->arg_integers[ExternCall->argc] =
+			(int64_t)argval;
+		ExternCall->arg_values[ExternCall->argc] = 
+			(void*)(&ExternCall->arg_integers[ExternCall->argc]);
+
+	}
+	else if (arg_type == VAR_FLOAT) {
+		ExternCall->arg_types[ExternCall->argc] = 
+			&ffi_type_longdouble;
+		ExternCall->arg_floats[ExternCall->argc] =
+			(long double)((unsigned long long)argval);
+		ExternCall->arg_values[ExternCall->argc] = 
+			(void*)(&ExternCall->arg_floats[ExternCall->argc]);
+
+	}
+	ExternCall->argc++;
+}
 
 void genarg_i(Inst **vmcodepp, long i) {
   vm_i2Cell(i, *((Cell *)*vmcodepp));
@@ -182,17 +231,23 @@ HandleTable *lookup_handle(char *name) {
   for (p = htab; p != NULL; p = p->next)
     if (!strcmp(p->name, name))
       return p;
-  fprintf(stderr, "undefined handle %s", name);
-  exit(1);
+  return NULL;
 }
 
-FILE *get_handle(char *name) { return lookup_handle(name)->handle; }
+FILE *get_handle(char *name) { 
+  HandleTable* h = lookup_handle(name);
+  if (h == NULL)
+	  return NULL;
+  else
+	  return h->handle;
+}
 
 #define CODE_SIZE 	(1 << 18)
 #define STACK_SIZE 	(1 << 18)
 typedef long (*engine_t)(Inst *ip0, Cell *sp, char *fp);
 Inst* vm_code 	= NULL;
 Inst* start  	= NULL;
+
 Cell *stack	= NULL;
 engine_t runvm;
 

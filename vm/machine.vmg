@@ -166,10 +166,52 @@ u8_strncat(&str[0], &str1[0], l1);
 u8_strncat(&str[l1 - 1], &str2[0], l2);
 
 libopen ( apath -- ptrhandle )
-ptrhandle = dlopen(apath, RTLD_GLOBAL);
+ptrhandle = dlopen(apath, RTLD_NOW | RTLD_GLOBAL);
+if (!ptrhandle) {
+	fputs(dlerror(), stderr);
+	exit(EX_IOERR);
+}
 
 libsym ( ptrhandle aname -- ptrres )
 ptrres = dlsym(ptrhandle, aname);
+if (!ptrres) {
+	fputs(dlerror(), stderr);
+	exit(EX_IOERR);
+}
+
+excallnum ( ptrhandle -- ires )
+ffi_cif 	cif;
+ffi_status	status;
+ExternCall->exfn = ptrhandle;
+if ((status = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, ExternCall->argc, &ExternCall->retrtype, ExternCall->arg_types)) != FFI_OK) {
+	fputs("Error with external call\n", stderr);
+	exit(EX_SOFTWARE);
+}
+ffi_call(&cif, FFI_FN(ExternCall->exfn), ExternCall->result, ExternCall->arg_values);
+ires = (int64_t)ExternCall->result;
+
+excallstr ( ptrhandle -- strres )
+ffi_cif 	cif;
+ffi_status	status;
+ExternCall->exfn = ptrhandle;
+if ((status = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, ExternCall->argc, &ExternCall->retrtype, ExternCall->arg_types)) != FFI_OK) {
+	fputs("Error with external call\n", stderr);
+	exit(EX_SOFTWARE); 
+}
+ffi_call(&cif, FFI_FN(ExternCall->exfn), ExternCall->result, ExternCall->arg_values);
+strres = (uint8_t*)ExternCall->result;
+
+excallflt ( ptrhandle -- fres )
+ffi_cif 	cif;
+ffi_status	status;
+ExternCall->exfn = ptrhandle;
+if ((status = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, ExternCall->argc, &ExternCall->retrtype, ExternCall->arg_types)) != FFI_OK) {
+	fputs("Error with external call\n", stderr);
+	exit(EX_SOFTWARE); 
+}
+ffi_call(&cif, FFI_FN(ExternCall->exfn), ExternCall->result, ExternCall->arg_values);
+fres = (long double)((unsigned long long)ExternCall->result);
+
 
 libclose ( ptrhandle -- )
 dlclose(ptrhandle);
@@ -201,6 +243,12 @@ SET_IP(target);
 sp = (Cell *)(((char *)sp)+iadjust);
 fp = afp;
 str2=str1;
+
+returnptr ( #iadjust target afp ptr1 -- ptr2 )
+SET_IP(target);
+sp = (Cell *)(((char *)sp)+iadjust);
+fp = afp;
+ptr2=ptr1;
 
 returnflt ( #iadjust target afp f1 -- f2 )
 SET_IP(target);
