@@ -1,0 +1,7 @@
+<#
+func main() : int = 
+  var[] myarr : int;
+  myarr = [ 22, 12 ];
+  return 0;
+end func;
+#>

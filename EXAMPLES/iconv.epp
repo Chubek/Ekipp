@@ -1,0 +1,8 @@
+<#
+func main() : int =
+ var i : str;
+ var::convert (int->str) 16 base::x $ i;
+ >>> std::out $ i;
+ return 0;
+ end func;
+#>
