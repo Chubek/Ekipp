@@ -9,6 +9,9 @@
 \E s" unsigned char *" single data-stack type-prefix str
 \E s" Inst *" single data-stack type-prefix target
 \E s" FILE *" single data-stack type-prefix file
+\E s" long *" single data-stack type-prefix narr
+\E s" unsigned char **" single data-stack type-prefix sarr
+\E s" long double *" single data-stack type-prefix farr
 
 add ( i1 i2 -- i )
 i = i1+i2;
@@ -295,6 +298,24 @@ vm_Cell2file(*(Cell *)(fp+ioffset),file);
 storelocalfile ( #ioffset file -- )
 vm_file2Cell(file,*(Cell *)(fp+ioffset));
 
+loadlocalfltarr ( #ioffset -- farr )
+vm_Cell2farr(*(Cell *)(fp+ioffset),farr);
+
+storelocalfltarr ( #ioffset farr -- )
+vm_farr2Cell(farr,*(Cell *)(fp+ioffset));
+
+loadlocalnumarr ( #ioffset -- narr )
+vm_Cell2narr(*(Cell *)(fp+ioffset),narr);
+
+storelocalnumarr ( #ioffset narr -- )
+vm_narr2Cell(narr,*(Cell *)(fp+ioffset));
+
+loadlocalstrarr ( #ioffset -- sarr )
+vm_Cell2sarr(*(Cell *)(fp+ioffset),sarr);
+
+storelocalstrarr ( #ioffset sarr -- )
+vm_sarr2Cell(sarr,*(Cell *)(fp+ioffset));
+
 end ( ptr -- )
 #ifdef VM_PROFILING
 block_insert(IP);
@@ -345,36 +366,47 @@ if (arr[0] < idx) {
 }
 fret = arr[idx];
 
-arrlitnum ( isize ptrarr #iadd -- )
-long* arr = (long*)ptrarr;
-if (arr == NULL) {
-	arr    = GC_MALLOC((isize + 2) * sizeof(long));
-	arr[0] = isize;
-	arr[1] = 2;
+arrlitnum ( #iadd narr1 -- narr2 )
+narr1[(size_t)narr1[0]++] = iadd;
+if ((size_t)narr1[0] % 8 == 0) {
+	narr1 = GC_REALLOC(narr1, (size_t)narr1[0] * sizeof(long));
 }
-size_t* sptr = (size_t*)&arr[1];
-arr[*sptr++] = iadd;
+narr2 = narr1;
 
-
-arrlitstr ( isize ptrarr #stradd -- )
-uint8_t** arr = (uint8_t**)ptrarr;
-if (arr == NULL) {
-	arr    = GC_MALLOC((isize + 2) * sizeof(uint8_t*));
-	arr[0] = (uint8_t*)isize;
-	arr[1] = (uint8_t*)2;
+arrlitstr ( #stradd sarr1 -- sarr2 )
+sarr1[(size_t)sarr1[0]++] = stradd;
+if ((size_t)sarr1[0] % 8 == 0) {
+	sarr1 = GC_REALLOC(sarr1, (size_t)sarr1[0] * sizeof(uint8_t*));
 }
-size_t* sptr = (size_t*)&arr[1];
-arr[*sptr++] = stradd;
+sarr2 = sarr1;
 
-arrlitflt ( isize ptrarr #fadd -- )
-long double* arr = (long double*)ptrarr;
-if (arr == NULL) {
-	arr    = GC_MALLOC((isize + 2) * sizeof(long double));
-	arr[0] = (long double)((unsigned long)isize);
-	arr[1] = 2;
+arrlitflt ( #fadd farr1 -- farr2 )
+farr1[(size_t)farr1[0]++] = fadd;
+if ((size_t)farr1[0] % 8 == 0) {
+	farr1 = GC_REALLOC(farr1, (size_t)farr1[0] * sizeof(long double));
 }
-size_t* sptr = (size_t*)&arr[1];
-arr[*sptr++] = fadd;
+farr2 = farr1;
+
+initnumstack ( -- narr )
+narr = GC_MALLOC(8 * sizeof(long));
+narr[0] = (long)1;
+
+initstrstack ( -- sarr )
+sarr = GC_MALLOC(8 * sizeof(uint8_t*));
+sarr[0] = (uint8_t*)1;
+
+initfltstack ( -- farr )
+farr = GC_MALLOC(8 * sizeof(long double));
+farr [0] = (long double)1;
+
+endnumstack ( narr1 -- narr2 )
+narr2 = narr1;
+
+endstrstack ( sarr1 -- sarr2 )
+sarr2 = sarr1;
+
+endfltstack ( farr1 -- farr2 )
+farr2 = farr1;
 
 lln = loadlocalnum litnum
 

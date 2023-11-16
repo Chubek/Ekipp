@@ -43,6 +43,9 @@ typedef union Cell {
   unsigned char* 	str;
   FILE*			file;
   void* 		ptr;
+  unsigned char**	sarr;
+  long double*		farr;
+  long*			narr;
 } Cell, 		Inst;
 
 #define vm_Cell2i(_cell,_x)		((_x)=(_cell).i)
@@ -59,6 +62,12 @@ typedef union Cell {
 #define vm_target2Cell(_x,_cell) 	((_cell).target=(_x))	
 #define vm_Cell2a(_cell,_x)		((_x)=(_cell).a)
 #define vm_a2Cell(_x,_cell)		((_cell).a=(_x))	
+#define vm_Cell2narr(_cell,_x)		((_x)=(_cell).narr)
+#define vm_narr2Cell(_x,_cell)		((_cell).narr=(_x))	
+#define vm_Cell2sarr(_cell,_x)		((_x)=(_cell).sarr)
+#define vm_sarr2Cell(_x,_cell)		((_cell).sarr=(_x))	
+#define vm_Cell2farr(_cell,_x)		((_x)=(_cell).farr)
+#define vm_farr2Cell(_x,_cell)		((_cell).farr=(_x))	
 #define vm_Cell2Cell(_x,_y) 		((_y)=(_x))
 
 /* for future extensions */
