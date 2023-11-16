@@ -35,6 +35,9 @@ uint8_t delim_right_token[TOK_MAX + 1]   = {0};
 uint8_t template_delim_left_token[TOK_MAX + 1]  = {0};
 uint8_t template_delim_right_token[TOK_MAX + 1] = {0};
 
+size_t  nblock = 0;
+size_t  nline  = 0;
+
 #include "ekipp.h"
 #include "machine.h"
 #include "yy.tab.h"
@@ -49,6 +52,7 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 
 %x TCOMMENT
 %x TQUOTE
+%x CHRESC
 %x ESC
 %x ENG
 %x REG
@@ -104,7 +108,8 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
                 BEGIN(INITIAL); return DRIGHT;
         } 
 	else if (!u8_strncmp(&template_delim_left_token[0], &yytext[0], 2))        {
-		BEGIN(TMPL); return TEMPLATE_DELIM_BEGIN;
+		BEGIN(TMPL); nblock++; nline = 1;
+		return TEMPLATE_DELIM_BEGIN;
 	} 
 	else if (!u8_strncmp(&template_delim_right_token[0], &yytext[0], 2))       {
 		BEGIN(INITIAL); return TEMPLATE_DELIM_END;
@@ -118,9 +123,12 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 <TCOMMENT>. {}
 <TCOMMENT>\n BEGIN(TMPL);
 
-<ENCLOSE>"\\"/[#!@%&<>:] { 
+<ENCLOSE>"\\"/[#!@%&<>:] BEGIN(CHRESC);
+
+<CHRESC>[#!@%&<>:] { 
 	yylval.sval = GC_REALLOC(yylval.sval, yyleng + 1);
-	yylval.sval[yyleng - 1] = yytext[1];
+	yylval.sval[yyleng - 1] = *yytext;
+	BEGIN(ENCLOSE);
 }
 <ENCLOSE>[^#!@%&<>:]+ {
 	yylval.sval = gc_strdup(&yytext[0]);
@@ -133,7 +141,7 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 <DIV1>[\n]           { BEGIN(DIV2);    return *yytext; }
 <ENG,EVALS,DEFN>[\n]+   { BEGIN(INITIAL); return *yytext;   }
 
-<TMPL>[ \t\n\r]	{ };
+<TMPL>[ \t\n\r]	nline++;
 
 <DEFN,CALL>[\r\n]	     REJECT;
 <DEFN>define	     return DEFINE;
@@ -171,6 +179,7 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 				return ARG_IDENT;       }
 <ARG>[^$^(^)^,^ ]+ { yylval.sval = gc_strdup(&yytext[0]);
 				return ARG_STR;         }
+
 
 <TMPL>q'  		BEGIN(TQUOTE);
 <TQUOTE>"\\'"		fputc('\'', yyout);
@@ -281,12 +290,14 @@ Ident		[a-zA-Z\_][a-zA-Z\_0-9]*
 <DQ_STR>["]    { BEGIN(TMPL); return DQ_TXT; }
 <TBT_STR>"```" { BEGIN(TMPL); return TBT_TXT; }
 
-<TMPL>[;,!()=+\-\*\%\/$]  return *yytext;
-<TMPL>"//"		  return IDIV;
+<TMPL>[;,!()=+\-\*\%\/$\]\[]  	return *yytext;
+<TMPL>"//"		  	return IDIV;
 
+<TMPL>::=	return ARR_ASSIGN;
 <TMPL>:=	return INIT_ASSIGN;
 <TMPL>func	return FUNC;
 <TMPL>var	return VAR;
+<TMPL>array	return ARRAY;
 <TMPL>return	return RETURN;
 <TMPL>for	return FOR;
 <TMPL>while	return WHILE;

@@ -90,7 +90,7 @@ void gen_main_end(void)
 %token COMMENTRIGHT DELIMRIGHT TMPLDELIMRIGHT QUOTERIGHT
 %token ENGAGEPREFIX CALLPREFIX DEFPREFIX CALLSUFFIX CHANGETOKEN CHNGVAL
 %token TEMPLATE_DELIM_BEGIN TEMPLATE_DELIM_END
-%token HOOK_LIB HOOK_SYM EXTERN_CALL INTOSYM
+%token HOOK_LIB HOOK_SYM EXTERN_CALL INTOSYM ARR_ASSIGN
 %token BASE10 BASE8 BASE16 BASE2
 %token STR2FLT FLT2STR FLT2NUM NUM2FLT NUM2STR STR2NUM CONV
 
@@ -192,16 +192,9 @@ params : IDENT ':' TYPE ',' { insert_local($<sval>1,
 vars : vars VAR IDENT ':' TYPE ';' { insert_local($<sval>3,
      						   $<tval>5);
      					nonparams++;		        }
-     | vars ARRAY '[' txpr 
-     	']' IDENT 
-	':' TYPE ';' {  if ($4 == VAR_INT)
-				gen_storelocalnum(&vmcodep, 
-						var_offset(size_id($<sval>6)));
-			else {
-				fputs("Index for array initialization must be evaluated, or be, an integer\n", stderr);
-				exit(EX_USAGE);
-			}
-			insert_local($<sval>6, $<tval>7 | VAR_ARRAY);
+     | vars VAR '[' ']' IDENT ':' TYPE ';' {	
+     				insert_local($<sval>5, 
+     					$<tval>7 | VAR_ARRAY);
 				nonparams++;
 						   			}
      |;
@@ -229,7 +222,23 @@ stat : IF txpr THEN   { gen_zbranch(&vmcodep, 0); $<instp>$ = vmcodep; }
 		commastats ')'     { $<instp>$ = $<instp>8;		}
 	dopart END FOR	      { BB_BOUNDARY; vm_target2Cell(vmcodep,
 						$<instp>10[-1]);	}
-     | IDENT '=' txpr       { if (var_type($<sval>1) == VAR_INT)
+     | IDENT '=' txpr       { if (var_isarray($<sval>1)) {
+				if (!($3 & VAR_ARRAY)) {
+					fputs("Expression assigned to array must be of array type\n", stdout);
+					exit(EX_USAGE);
+				}
+				if ($3 & VAR_INT) {
+					gen_storelocalnumarr(&vmcodep,
+						var_offset($<sval>1));
+				} else if ($3 & VAR_STR) {
+					gen_storelocalstrarr(&vmcodep,
+						var_offset($<sval>1));
+				} else if ($3 & VAR_FLOAT) {
+					gen_storelocalfltarr(&vmcodep,
+						var_offset($<sval>1));
+				}
+			     }
+			     if (var_type($<sval>1) == VAR_INT)
      				gen_storelocalnum(&vmcodep, 
      					var_offset($<sval>1));	
 			      else if (var_type($<sval>1) == VAR_STR)
@@ -238,36 +247,6 @@ stat : IF txpr THEN   { gen_zbranch(&vmcodep, 0); $<instp>$ = vmcodep; }
 			      else if (var_type($<sval>1) == VAR_FLOAT)
 			      	gen_storelocalflt(&vmcodep,
 					var_offset($<sval>1));		}
-     | IDENT  { if (!var_isarray($<sval>1) 
-     				  || !(var_type($<sval>1) & VAR_INT)) {
-				  	fputs("Array must be of integer tpye to accept integer array literal\n", stderr);
-					exit(EX_USAGE);	  
-				  }
-				    gen_loadlocalptr(&vmcodep, 
-				       var_offset($<sval>1));
-				    gen_loadlocalnum(&vmcodep,
-				       var_offset(size_id($<sval>1)));
-			} '=' numarrlit
-     | IDENT  { if (!var_isarray($<sval>1) 
-      				  || !(var_type($<sval>1) & VAR_FLOAT)) {
-				  	fputs("Array must be of float tpye to accept float array literal\n", stderr);
-					exit(EX_USAGE);	  
-				  }
-				    gen_loadlocalptr(&vmcodep, 
-				       var_offset($<sval>1));
-				    gen_loadlocalnum(&vmcodep,
-				       var_offset(size_id($<sval>1)));
-			} '=' fltarrlit
-     | IDENT  { if (!var_isarray($<sval>1) 
-     				  || !(var_type($<sval>1) & VAR_STR)) {
-				  	fputs("Array must be of string tpye to accept string array literal\n", stderr);
-					exit(EX_USAGE);	  
-				  }
-				    gen_loadlocalptr(&vmcodep, 
-				       var_offset($<sval>1));
-				    gen_loadlocalnum(&vmcodep,
-				       var_offset(size_id($<sval>1)));
-			} '=' strarrlit
      | IDENT INIT_ASSIGN txpr { insert_local($<sval>1, $<tval>3);	}
      | OUTPUT STD_OUT
      	'$' printtxt   	    { gen_output(&vmcodep, 1);			}
@@ -345,17 +324,16 @@ printtxt : IDENT		{ int type = var_type($<sval>1);
 				   	gen_loadlocalstr(&vmcodep, 
 						var_offset($<sval>1));
 				   else {
-				   	fputs("Variable sent to print must be a string\n", stderr);
+				   	fputs("Variable sent to\
+					print must be a string\n", stderr);
 					exit(EX_USAGE);
 					}				}
 	 | SQ_TXT		{ gen_litstr(&vmcodep, $<sval>1);	}
 	 | DQ_TXT		{ gen_litstr(&vmcodep, $<sval>1);	}
 	 | TBT_TXT		{ gen_litstr(&vmcodep, $<sval>1);	}
-	 | txpr			{ if ($1 != VAR_STR) {
-					fputs("Expression sent to print does not evaluate to an string\n", stderr);
-					exit(EX_USAGE);
-				}
-									}
+	 | convert
+	 ;
+
 externarg : txpr ',' externarg  { if ($1 == VAR_INT)
 	  				gen_libargnum(&vmcodep);
 				  else if ($1 == VAR_STR)
@@ -396,27 +374,38 @@ elsepart : ELSE { gen_branch(&vmcodep, 0); $<instp>$ = vmcodep;
 	 |  { $$ = $<instp>0;	}
 	 ;
 
-fltarrlit : '[' fltarrlit ']'
-	    | fltarrlit ',' FLOATNUM { gen_arrlitflt(&vmcodep, 
-	    					$<fval>3);		}
-	    | FLOATNUM		       { gen_arrlitflt(&vmcodep,
+fltarrlit : '[' { gen_initfltstack(&vmcodep); 	} fltarr ']'
+	
+fltarr : fltarr  FLOATNUM   { gen_arrlitflt(&vmcodep, 
+						$<fval>2);		}
+       | FLOATNUM           { gen_arrlitflt(&vmcodep,
 	    					$<fval>1);		}
-	    |;
+       | FLOATNUM ','	    { gen_arrlitflt(&vmcodep,
+       						$<fval>1);		}
+       ;
 
-strarrlit : '[' strarrlit ']'
-	  | strarrlit ',' DQ_TXT  { gen_arrlitstr(&vmcodep, $<sval>3);	}
-	  | DQ_TXT		 { gen_arrlitstr(&vmcodep, $<sval>1);	}
- 	  | strarrlit ',' SQ_TXT  { gen_arrlitstr(&vmcodep, $<sval>3);	}
-	  | SQ_TXT		 { gen_arrlitstr(&vmcodep, $<sval>1);	}
-	  | strarrlit ',' TBT_TXT { gen_arrlitstr(&vmcodep, $<sval>3);	}
-          | TBT_TXT		 { gen_arrlitstr(&vmcodep, $<sval>1);	}
-	  |;
+strarrlit : '[' { gen_initstrstack(&vmcodep); } strarr ']'
+	 
+strarr : strarr   DQ_TXT    { gen_arrlitstr(&vmcodep, $<sval>2);	}
+       | DQ_TXT		    { gen_arrlitstr(&vmcodep, $<sval>1);	}
+       | strarr   SQ_TXT    { gen_arrlitstr(&vmcodep, $<sval>2);	}
+       | SQ_TXT		    { gen_arrlitstr(&vmcodep, $<sval>1);	}
+       | strarr  TBT_TXT    { gen_arrlitstr(&vmcodep, $<sval>2);	}
+       | TBT_TXT	    { gen_arrlitstr(&vmcodep, $<sval>1);	}
+       | DQ_TXT  ','	    { gen_arrlitstr(&vmcodep, $<sval>1);	}
+       | SQ_TXT  ','	    { gen_arrlitstr(&vmcodep, $<sval>1);	}
+       | TBT_TXT ','	    { gen_arrlitstr(&vmcodep, $<sval>1);	}
+       | ','
+       ;	
 
+numarrlit : '[' { gen_initnumstack(&vmcodep); } numarr ']'
+	  ;
 
-numarrlit : '[' numarrlit ']'
-	  | numarrlit ',' NUM	{ gen_arrlitnum(&vmcodep, $<ival>3);	}
-	  | NUM			{ gen_arrlitnum(&vmcodep, $<ival>1);	}
-	  |;
+numarr : numarr  NUM	  { gen_arrlitnum(&vmcodep, $<ival>2);	}
+       | NUM		  { gen_arrlitnum(&vmcodep, $<ival>1);	}
+       | NUM ','	  { gen_arrlitnum(&vmcodep, $<ival>1);	}
+       ;
+	 
 
 txpr : term '+' term     { $$ = $<tval>1;
      			   if ($1 == VAR_INT && $3 == VAR_INT)
@@ -451,6 +440,12 @@ txpr : term '+' term     { $$ = $<tval>1;
      | term LE  term 	 { gen_le(&vmcodep);   $$ = $<tval>1;    }
      | term EQ  term	 { gen_eq(&vmcodep);   $$ = $<tval>1;    }
      | term NE  term	 { gen_ne(&vmcodep);   $$ = $<tval>1;    }
+     | numarrlit	 { gen_endnumstack(&vmcodep);
+     				$$ = VAR_ARRAY | VAR_INT;		 }
+     | strarrlit	 { gen_endstrstack(&vmcodep);
+     				$$ = VAR_ARRAY | VAR_STR;		 }
+     | fltarrlit	 { gen_endfltstack(&vmcodep);
+     				$$ = VAR_ARRAY | VAR_FLOAT;	 }
      | '!' term          { gen_not(&vmcodep);  $$ = $<tval>1;    }
      | '-' term          { gen_neg(&vmcodep);  $$ = $<tval>1;    }
      | term		 { $$ = $<tval>1;			 }
@@ -509,6 +504,17 @@ term : '(' txpr ')'		{ $$ = 0; }
 					$$ = func_retrtype($<sval>1);   }
      | IDENT			{ int type = var_type($<sval>1);
      				  $$ = type;
+				  if (type & VAR_ARRAY) {
+					if (type & VAR_INT)
+					  gen_loadlocalnumarr(&vmcodep,
+					  	var_offset($<sval>1));
+					else if (type & VAR_STR)
+					  gen_loadlocalstrarr(&vmcodep,
+					        var_offset($<sval>1));
+					else if (type & VAR_FLOAT)
+					  gen_loadlocalfltarr(&vmcodep,
+					  	var_offset($<sval>1));
+				  }
 				  if (type == VAR_INT)
 					gen_loadlocalnum(&vmcodep, 
      						var_offset($<sval>1));	  
@@ -537,10 +543,10 @@ targ : txpr ',' targ
      ;
 
 call : CALL_PREFIX
-     	IDENT '(' args ')'     { body_code = get_symbol($<sval>2);
-				 yyparse_body();		}
+     	IDENT '(' args ')'      { body_code = get_symbol($<sval>2);
+			        	 yyparse_body();		}
      | CALL_PREFIX
-        IDENT CALL_SUFFIX      { fprintf(yyout, "%s", 
+         IDENT CALL_SUFFIX      { fprintf(yyout, "%s", 
 					get_symbol($<sval>2));   }
      ;
 
